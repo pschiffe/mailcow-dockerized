@@ -8,7 +8,7 @@ services:
         mysql-mailcow:
           condition: service_healthy
       volumes:
-        - ./data/conf/bind9/named.conf:/etc/bind/named.conf
+        - ./data/conf/bind9/named.conf:/etc/bind/named.conf:z
       restart: always
       networks:
         mailcow-network:
@@ -24,8 +24,8 @@ services:
         timeout: 30s
         retries: 5
       volumes:
-        - mysql-vol-1:/var/lib/mysql/
-        - ./data/conf/mysql/:/etc/mysql/conf.d/:ro
+        - mysql-vol-1:/var/lib/mysql/:z
+        - ./data/conf/mysql/:/etc/mysql/conf.d/:ro,z
       dns:
         - 172.22.1.254
       dns_search: mailcow-network
@@ -45,7 +45,7 @@ services:
       depends_on:
         - bind9-mailcow
       volumes:
-        - redis-vol-1:/data/
+        - redis-vol-1:/data/:z
       restart: always
       dns:
         - 172.22.1.254
@@ -79,11 +79,11 @@ services:
         nginx-mailcow:
           condition: service_healthy
       volumes:
-        - ./data/conf/rspamd/override.d/:/etc/rspamd/override.d:ro
-        - ./data/conf/rspamd/local.d/:/etc/rspamd/local.d:ro
-        - ./data/conf/rspamd/lua/:/etc/rspamd/lua/:ro
-        - dkim-vol-1:/data/dkim
-        - rspamd-vol-1:/var/lib/rspamd
+        - ./data/conf/rspamd/override.d/:/etc/rspamd/override.d:ro,z
+        - ./data/conf/rspamd/local.d/:/etc/rspamd/local.d:ro,z
+        - ./data/conf/rspamd/lua/:/etc/rspamd/lua/:ro,z
+        - dkim-vol-1:/data/dkim:z
+        - rspamd-vol-1:/var/lib/rspamd:z
       restart: always
       dns:
         - 172.22.1.254
@@ -101,9 +101,9 @@ services:
       depends_on:
         - bind9-mailcow
       volumes:
-        - ./data/web:/web:ro
-        - ./data/conf/rspamd/dynmaps:/dynmaps:ro
-        - dkim-vol-1:/data/dkim
+        - ./data/web:/web:ro,z
+        - ./data/conf/rspamd/dynmaps:/dynmaps:ro,z
+        - dkim-vol-1:/data/dkim:z
       dns:
         - 172.22.1.254
       dns_search: mailcow-network
@@ -132,8 +132,7 @@ services:
         - 172.22.1.254
       dns_search: mailcow-network
       volumes:
-        - ./data/conf/sogo/:/etc/sogo/
-        - /usr/lib/GNUstep/SOGo/WebServerResources/
+        - ./data/conf/sogo/:/etc/sogo/:z
       restart: always
       networks:
         mailcow-network:
@@ -147,7 +146,7 @@ services:
       depends_on:
         - bind9-mailcow
       volumes:
-        - ./data/conf/rmilter/:/etc/rmilter.conf.d/:ro
+        - ./data/conf/rmilter/:/etc/rmilter.conf.d/:ro,z
       restart: always
       dns:
         - 172.22.1.254
@@ -163,11 +162,11 @@ services:
       depends_on:
         - bind9-mailcow
       volumes:
-        - ./data/conf/dovecot:/usr/local/etc/dovecot
-        - ./data/assets/ssl:/etc/ssl/mail/:ro
-        - ./data/conf/sogo/:/etc/sogo/
-        - vmail-vol-1:/var/vmail
-        - crypt-vol-1:/mail_crypt/
+        - ./data/conf/dovecot:/usr/local/etc/dovecot:z
+        - ./data/assets/ssl:/etc/ssl/mail/:ro,z
+        - ./data/conf/sogo/:/etc/sogo/:z
+        - vmail-vol-1:/var/vmail:z
+        - crypt-vol-1:/mail_crypt/:z
       environment:
         - DBNAME=${DBNAME}
         - DBUSER=${DBUSER}
@@ -194,10 +193,10 @@ services:
       depends_on:
         - bind9-mailcow
       volumes:
-        - ./data/conf/postfix:/opt/postfix/conf
-        - ./data/assets/ssl:/etc/ssl/mail/:ro
-        - postfix-vol-1:/var/spool/postfix
-        - crypt-vol-1:/var/lib/zeyple
+        - ./data/conf/postfix:/opt/postfix/conf:z
+        - ./data/assets/ssl:/etc/ssl/mail/:ro,z
+        - postfix-vol-1:/var/spool/postfix:z
+        - crypt-vol-1:/var/lib/zeyple:z
       environment:
         - DBNAME=${DBNAME}
         - DBUSER=${DBUSER}
@@ -248,10 +247,12 @@ services:
         - HTTP_PORT=${HTTP_PORT:-80}
         - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
       volumes:
-        - ./data/web:/web:ro
-        - ./data/conf/rspamd/dynmaps:/dynmaps:ro
-        - ./data/assets/ssl/:/etc/ssl/mail/:ro
-        - ./data/conf/nginx/:/etc/nginx/conf.d/:rw
+        - ./data/web:/web:ro,z
+        - ./data/conf/rspamd/dynmaps:/dynmaps:ro,z
+        - ./data/assets/ssl/:/etc/ssl/mail/:ro,z
+        - ./data/assets/ssl/cert.pem:/etc/ssl/mail/cert.pem:ro,z
+        - ./data/assets/ssl/key.pem:/etc/ssl/mail/key.pem:ro,z
+        - ./data/conf/nginx/:/etc/nginx/conf.d/:rw,z
       dns:
         - 172.22.1.254
       dns_search: mailcow-network
