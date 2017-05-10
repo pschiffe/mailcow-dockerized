@@ -164,6 +164,8 @@ services:
       volumes:
         - ./data/conf/dovecot:/usr/local/etc/dovecot:z
         - ./data/assets/ssl:/etc/ssl/mail/:ro,z
+        - ./data/assets/ssl/cert.pem:/etc/ssl/mail/cert.pem:ro,z
+        - ./data/assets/ssl/key.pem:/etc/ssl/mail/key.pem:ro,z
         - ./data/conf/sogo/:/etc/sogo/:z
         - vmail-vol-1:/var/vmail:z
         - crypt-vol-1:/mail_crypt/:z
@@ -195,6 +197,8 @@ services:
       volumes:
         - ./data/conf/postfix:/opt/postfix/conf:z
         - ./data/assets/ssl:/etc/ssl/mail/:ro,z
+        - ./data/assets/ssl/cert.pem:/etc/ssl/mail/cert.pem:ro,z
+        - ./data/assets/ssl/key.pem:/etc/ssl/mail/key.pem:ro,z
         - postfix-vol-1:/var/spool/postfix:z
         - crypt-vol-1:/var/lib/zeyple:z
       environment:
