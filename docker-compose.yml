@@ -9,6 +9,7 @@ services:
           condition: service_healthy
       volumes:
         - ./data/conf/bind9/named.conf:/etc/bind/named.conf:z
+        - /etc/localtime:/etc/localtime:ro
       restart: always
       networks:
         mailcow-network:
@@ -26,6 +27,7 @@ services:
       volumes:
         - mysql-vol-1:/var/lib/mysql/:z
         - ./data/conf/mysql/:/etc/mysql/conf.d/:ro,z
+        - /etc/localtime:/etc/localtime:ro
       dns:
         - 172.22.1.254
       dns_search: mailcow-network
@@ -46,6 +48,7 @@ services:
         - bind9-mailcow
       volumes:
         - redis-vol-1:/data/:z
+        - /etc/localtime:/etc/localtime:ro
       restart: always
       dns:
         - 172.22.1.254
@@ -58,6 +61,8 @@ services:
     clamd-mailcow:
       image: mailcow/clamd
       build: ./data/Dockerfiles/clamav
+      volumes:
+        - /etc/localtime:/etc/localtime:ro
       restart: always
       dns:
         - 172.22.1.254
@@ -84,6 +89,7 @@ services:
         - ./data/conf/rspamd/lua/:/etc/rspamd/lua/:ro,z
         - dkim-vol-1:/data/dkim:z
         - rspamd-vol-1:/var/lib/rspamd:z
+        - /etc/localtime:/etc/localtime:ro
       restart: always
       dns:
         - 172.22.1.254
@@ -104,6 +110,7 @@ services:
         - ./data/web:/web:ro,z
         - ./data/conf/rspamd/dynmaps:/dynmaps:ro,z
         - dkim-vol-1:/data/dkim:z
+        - /etc/localtime:/etc/localtime:ro
       dns:
         - 172.22.1.254
       dns_search: mailcow-network
@@ -133,6 +140,7 @@ services:
       dns_search: mailcow-network
       volumes:
         - ./data/conf/sogo/:/etc/sogo/:z
+        - /etc/localtime:/etc/localtime:ro
       restart: always
       networks:
         mailcow-network:
@@ -147,6 +155,7 @@ services:
         - bind9-mailcow
       volumes:
         - ./data/conf/rmilter/:/etc/rmilter.conf.d/:ro,z
+        - /etc/localtime:/etc/localtime:ro
       restart: always
       dns:
         - 172.22.1.254
@@ -169,6 +178,7 @@ services:
         - ./data/conf/sogo/:/etc/sogo/:z
         - vmail-vol-1:/var/vmail:z
         - crypt-vol-1:/mail_crypt/:z
+        - /etc/localtime:/etc/localtime:ro
       environment:
         - DBNAME=${DBNAME}
         - DBUSER=${DBUSER}
@@ -201,6 +211,7 @@ services:
         - ./data/assets/ssl/key.pem:/etc/ssl/mail/key.pem:ro,z
         - postfix-vol-1:/var/spool/postfix:z
         - crypt-vol-1:/var/lib/zeyple:z
+        - /etc/localtime:/etc/localtime:ro
       environment:
         - DBNAME=${DBNAME}
         - DBUSER=${DBUSER}
@@ -223,6 +234,8 @@ services:
       image: memcached
       depends_on:
         - bind9-mailcow
+      volumes:
+        - /etc/localtime:/etc/localtime:ro
       restart: always
       dns:
         - 172.22.1.254
@@ -257,6 +270,7 @@ services:
         - ./data/assets/ssl/cert.pem:/etc/ssl/mail/cert.pem:ro,z
         - ./data/assets/ssl/key.pem:/etc/ssl/mail/key.pem:ro,z
         - ./data/conf/nginx/:/etc/nginx/conf.d/:rw,z
+        - /etc/localtime:/etc/localtime:ro
       dns:
         - 172.22.1.254
       dns_search: mailcow-network
