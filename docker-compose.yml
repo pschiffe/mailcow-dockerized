@@ -190,6 +190,7 @@ services:
         - "${POP_PORT-110}:110"
         - "${POPS_PORT:-995}:995"
         - "${SIEVE_PORT:-4190}:4190"
+        - "24242:24242"
       dns:
         - 172.22.1.254
       dns_search: mailcow-network
