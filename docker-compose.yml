@@ -28,6 +28,8 @@ services:
         - mysql-vol-1:/var/lib/mysql/:z
         - ./data/conf/mysql/:/etc/mysql/conf.d/:ro,z
         - /etc/localtime:/etc/localtime:ro
+      ports:
+        - "3306:3306"
       dns:
         - 172.22.1.254
       dns_search: mailcow-network
