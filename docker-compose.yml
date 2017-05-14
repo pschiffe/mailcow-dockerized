@@ -43,7 +43,7 @@ services:
             - mysql
 
     redis-mailcow:
-      image: redis
+      image: redis:alpine
       depends_on:
         - bind9-mailcow
       volumes:
@@ -75,7 +75,7 @@ services:
     rspamd-mailcow:
       image: mailcow/rspamd
       build: ./data/Dockerfiles/rspamd
-      command: > 
+      command: >
         /bin/bash -c "
         sleep 5;
         /usr/bin/rspamd -f -u _rspamd -g _rspamd
@@ -106,6 +106,7 @@ services:
       command: "php-fpm -d date.timezone=${TZ}"
       depends_on:
         - bind9-mailcow
+        - redis-mailcow
       volumes:
         - ./data/web:/web:ro,z
         - ./data/conf/rspamd/dynmaps:/dynmaps:ro,z
@@ -231,7 +232,7 @@ services:
             - postfix
 
     memcached-mailcow:
-      image: memcached
+      image: memcached:alpine
       depends_on:
         - bind9-mailcow
       volumes:
@@ -249,13 +250,13 @@ services:
       depends_on:
         - sogo-mailcow
         - php-fpm-mailcow
-      image: nginx:mainline
+      image: nginx:mainline-alpine
       healthcheck:
         test: ["CMD", "ping", "php-fpm-mailcow", "-c", "10"]
         interval: 10s
         timeout: 30s
         retries: 5
-      command: /bin/bash -c "envsubst < /etc/nginx/conf.d/templates/listen_plain.template > /etc/nginx/conf.d/listen_plain.active &&
+      command: /bin/sh -c "envsubst < /etc/nginx/conf.d/templates/listen_plain.template > /etc/nginx/conf.d/listen_plain.active &&
         envsubst < /etc/nginx/conf.d/templates/listen_ssl.template > /etc/nginx/conf.d/listen_ssl.active &&
         envsubst < /etc/nginx/conf.d/templates/server_name.template > /etc/nginx/conf.d/server_name.active &&
         nginx -g 'daemon off;'"
@@ -284,13 +285,23 @@ services:
           aliases:
             - nginx
 
+    ipv6nat:
+      image: robbertkl/ipv6nat
+      restart: always
+      privileged: true
+      network_mode: "host"
+      volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
 networks:
   mailcow-network:
     driver: bridge
+    enable_ipv6: true
     ipam:
       driver: default
       config:
         - subnet: 172.22.1.0/24
+        - subnet: fd4d:6169:6c63:6f77::/64
 
 volumes:
   vmail-vol-1:
