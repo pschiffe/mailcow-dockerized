@@ -52,6 +52,8 @@ services:
         - redis-vol-1:/data/:z
         - /etc/localtime:/etc/localtime:ro
       restart: always
+      ports:
+        - "6379:6379"
       dns:
         - 172.22.1.254
       dns_search: mailcow-network
