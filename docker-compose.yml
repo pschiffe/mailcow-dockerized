@@ -294,10 +294,12 @@ services:
         - SKIP_LETS_ENCRYPT=${SKIP_LETS_ENCRYPT:-n}
         - SKIP_IP_CHECK=${SKIP_IP_CHECK:-n}
       volumes:
-        - ./data/web/.well-known/acme-challenge:/var/www/acme:rw,z
-        - ./data/assets/ssl:/var/lib/acme/:rw,z
-        - ./data/assets/ssl-example:/var/lib/ssl-example/:ro,z
+        - ./data/web/.well-known/acme-challenge:/var/www/acme:rw
+        - ./data/assets/ssl:/var/lib/acme/:rw
+        - ./data/assets/ssl-example:/var/lib/ssl-example/:ro
         - /var/run/docker.sock:/var/run/docker.sock:ro
+      security_opt:
+        - label:disable
       # do not restart the container too often. Things get worse when we hit let's encrypt's ratelimit.
       restart: on-failure:1
       networks:
