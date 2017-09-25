@@ -16,7 +16,12 @@ if [ -z "$MAILCOW_HOSTNAME" ]; then
   read -p "Hostname (FQDN): " -ei "mx.example.org" MAILCOW_HOSTNAME
 fi
 
-[[ -a /etc/timezone ]] && TZ=$(cat /etc/timezone)
+if [[ -a /etc/timezone ]]; then 
+ TZ=$(cat /etc/timezone) 
+elif  [[ -a /etc/localtime ]]; then
+ TZ=$(readlink /etc/localtime|sed -n 's|^.*zoneinfo/||p')
+fi
+
 if [ -z "$TZ" ]; then
   read -p "Timezone: " -ei "Europe/Berlin" TZ
 else
@@ -58,7 +63,7 @@ HTTPS_BIND=0.0.0.0
 # ------------------------------
 # You should leave that alone
 # Format: 11.22.33.44:25 or 0.0.0.0:465 etc.
-# Do _not_ use IP:PORT in HTTPS_BIND or HTTPS_PORT
+# Do _not_ use IP:PORT in HTTP(S)_BIND or HTTP(S)_PORT
 
 SMTP_PORT=25
 SMTPS_PORT=465
@@ -68,7 +73,32 @@ IMAPS_PORT=993
 POP_PORT=110
 POPS_PORT=995
 SIEVE_PORT=4190
+DOVEADM_PORT=127.0.0.1:19991
 
 # Your timezone
 TZ=${TZ}
+
+# Fixed project name
+COMPOSE_PROJECT_NAME=mailcow-dockerized
+
+# Additional SAN for the certificate
+ADDITIONAL_SAN=
+
+# To never run acme-mailcow for Let's Encrypt, set this to y
+SKIP_LETS_ENCRYPT=n
+
+# Skip IPv4 check in ACME container
+SKIP_IP_CHECK=n
+
+# To never run fail2ban-mailcow
+SKIP_FAIL2BAN=n
+
+# To never run clamd-mailcow
+SKIP_CLAMD=n
+
 EOF
+
+mkdir -p data/assets/ssl
+
+# copy but don't overwrite existing certificate
+cp -n data/assets/ssl-example/*.pem data/assets/ssl/

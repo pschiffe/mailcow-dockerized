@@ -1,7 +1,9 @@
 <?php
 // Start session
 ini_set("session.cookie_httponly", 1);
-if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && 
+ini_set('session.gc_maxlifetime', $SESSION_LIFETIME);
+
+if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) &&
   strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == "https") {
   ini_set("session.cookie_secure", 1);
   $IS_HTTPS = true;
@@ -13,26 +15,23 @@ elseif (isset($_SERVER['HTTPS'])) {
 else {
   $IS_HTTPS = false;
 }
-session_set_cookie_params($GLOBALS['SESSION_LIFETIME'], '/', '', $IS_HTTPS, true);
+// session_set_cookie_params($SESSION_LIFETIME, '/', '', $IS_HTTPS, true);
 session_start();
 if (!isset($_SESSION['CSRF']['TOKEN'])) {
   $_SESSION['CSRF']['TOKEN'] = bin2hex(random_bytes(32));
 }
 
-// Set session IP and UA
-if (!isset($_SESSION['SESS_REMOTE_IP'])) {
-  $_SESSION['SESS_REMOTE_IP'] = $_SERVER['REMOTE_ADDR'];
-}
+// Set session UA
 if (!isset($_SESSION['SESS_REMOTE_UA'])) {
   $_SESSION['SESS_REMOTE_UA'] = $_SERVER['HTTP_USER_AGENT'];
 }
 
+// Update session cookie
+// setcookie(session_name() ,session_id(), time() + $SESSION_LIFETIME);
+
 // Check session
 function session_check() {
-  if (!isset($_SESSION['SESS_REMOTE_IP']) || !isset($_SESSION['SESS_REMOTE_UA'])) {
-    return false;
-  }
-  if ($_SESSION['SESS_REMOTE_IP'] != $_SERVER['REMOTE_ADDR']) {
+  if (!isset($_SESSION['SESS_REMOTE_UA'])) {
     return false;
   }
   if ($_SESSION['SESS_REMOTE_UA'] != $_SERVER['HTTP_USER_AGENT']) {

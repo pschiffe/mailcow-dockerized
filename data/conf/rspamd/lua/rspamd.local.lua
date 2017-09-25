@@ -7,15 +7,6 @@ rspamd_config.MAILCOW_AUTH = {
 	end
 }
 
-modify_subject_map = rspamd_config:add_map({
-  url = 'http://172.22.1.251:8081/tags.php',
-  type = 'map',
-  description = 'Map of users to use subject tags for'
-})
-
-local redis_params
-redis_params = rspamd_parse_redis_server('tag_settings')
-if redis_params then
 rspamd_config:register_symbol({
   name = 'TAG_MOO',
   type = 'postfilter',
@@ -25,11 +16,6 @@ rspamd_config:register_symbol({
 
     local tagged_rcpt = task:get_symbol("TAGGED_RCPT")
     local mailcow_domain = task:get_symbol("RCPT_MAILCOW_DOMAIN")
-
-    local user = task:get_recipients(0)[1]['user']
-    local domain = task:get_recipients(0)[1]['domain']
-    local rcpt = user .. '@' .. domain
-
 
     if tagged_rcpt and mailcow_domain then
       local tag = tagged_rcpt[1].options[1]
@@ -49,54 +35,76 @@ rspamd_config:register_symbol({
         rspamd_logger.infox("user wants subject modified for tagged mail")
         local sbj = task:get_header('Subject')
         new_sbj = '=?UTF-8?B?' .. tostring(util.encode_base64('[' .. tag .. '] ' .. sbj)) .. '?='
-        task:set_rmilter_reply({
+        task:set_milter_reply({
           remove_headers = {['Subject'] = 1},
           add_headers = {['Subject'] = new_sbj}
         })
       else
         rspamd_logger.infox("Add X-Moo-Tag header")
-        task:set_rmilter_reply({
+        task:set_milter_reply({
           add_headers = {['X-Moo-Tag'] = 'YES'}
         })
       end
     end
   end,
-  priority = 10
+  priority = 11
 })
-end
 
-rspamd_config.MRAPTOR = {
+rspamd_config:register_symbol({
+  name = 'DYN_RL_CHECK',
+  type = 'prefilter',
   callback = function(task)
-    local parts = task:get_parts()
+    local util = require("rspamd_util")
+    local redis_params = rspamd_parse_redis_server('dyn_rl')
     local rspamd_logger = require "rspamd_logger"
-    local rspamd_regexp = require "rspamd_regexp"
+    local envfrom = task:get_from(1)
+    local env_from_domain = envfrom[1].domain:lower() -- get smtp from domain in lower case
+    local env_from_addr = envfrom[1].addr:lower() -- get smtp from addr in lower case
 
-    if parts then
-      for _,p in ipairs(parts) do
-        local mtype,subtype = p:get_type()
-        local re = rspamd_regexp.create_cached('/(office|word|excel)/i')
-        if re:match(subtype) then
-          local content = tostring(p:get_content())
-          local filename = p:get_filename()
+    local function redis_cb_user(err, data)
 
-          local file = os.tmpname()
-          f = io.open(file, "a+")
-          f:write(content)
-          f:close()
+      if err or type(data) ~= 'string' then
+        rspamd_logger.infox(rspamd_config, "dynamic ratelimit request for user %s returned invalid or empty data (\"%s\") or error (\"%s\") - trying dynamic ratelimit for domain...", env_from_addr, data, err)
 
-          local scan = assert(io.popen('PATH=/usr/bin:/usr/local/bin mraptor ' .. file .. '> /dev/null 2>&1; echo $?', 'r'))
-          local result = scan:read('*all')
-          local exit_code = string.match(result, "%d+")
-          rspamd_logger.infox(exit_code)
-          scan:close()
-
-          if exit_code == "20" then
-            rspamd_logger.infox("Reject dangerous macro in office file " .. filename)
-            task:set_pre_result(rspamd_actions['reject'], 'Dangerous macro in office file ' .. filename)
+        local function redis_key_cb_domain(err, data)
+          if err or type(data) ~= 'string' then
+            rspamd_logger.infox(rspamd_config, "dynamic ratelimit request for domain %s returned invalid or empty data (\"%s\") or error (\"%s\")", env_from_domain, data, err)
+          else
+            rspamd_logger.infox(rspamd_config, "found dynamic ratelimit in redis for domain %s with value %s", env_from_domain, data)
+            task:insert_result('DYN_RL', 0.0, data)
           end
-
         end
+
+        local redis_ret_domain = rspamd_redis_make_request(task,
+          redis_params, -- connect params
+          env_from_domain, -- hash key
+          false, -- is write
+          redis_key_cb_domain, --callback
+          'HGET', -- command
+          {'RL_VALUE', env_from_domain} -- arguments
+        )
+        if not redis_ret_domain then
+          rspamd_logger.infox(rspamd_config, "cannot make request to load ratelimit for domain")
+        end
+      else
+        rspamd_logger.infox(rspamd_config, "found dynamic ratelimit in redis for user %s with value %s", env_from_addr, data)
+        task:insert_result('DYN_RL', 0.0, data)
       end
+
     end
-  end
-}
+
+    local redis_ret_user = rspamd_redis_make_request(task,
+      redis_params, -- connect params
+      env_from_addr, -- hash key
+      false, -- is write
+      redis_cb_user, --callback
+      'HGET', -- command
+      {'RL_VALUE', env_from_addr} -- arguments
+    )
+    if not redis_ret_user then
+      rspamd_logger.infox(rspamd_config, "cannot make request to load ratelimit for user")
+    end
+    return true
+  end,
+  priority = 20
+})

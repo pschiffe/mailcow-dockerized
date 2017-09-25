@@ -1,28 +1,28 @@
-FROM debian:jessie-slim
+FROM debian:stretch-slim
 LABEL maintainer "Andre Peters <andre.peters@servercow.de>"
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV LC_ALL C
 
-RUN apt-key adv --fetch-keys http://rspamd.com/apt-stable/gpg.key \
-	&& echo "deb http://rspamd.com/apt-stable/ jessie main" > /etc/apt/sources.list.d/rspamd.list \
-	&& apt-get update && apt-get install -y \
-		ca-certificates \
-		python-pip \
-		rspamd \
-	&& rm -rf /var/lib/apt/lists/*
-
-RUN echo '.include $LOCAL_CONFDIR/local.d/rspamd.conf.local' > /etc/rspamd/rspamd.conf.local
+RUN apt-get update && apt-get install -y \
+	ca-certificates \
+	gnupg2 \
+	apt-transport-https \
+	&& apt-key adv --fetch-keys https://rspamd.com/apt/gpg.key \
+	&& echo "deb https://rspamd.com/apt/ stretch main" > /etc/apt/sources.list.d/rspamd.list \
+	&& apt-get update && apt-get install -y rspamd \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& echo '.include $LOCAL_CONFDIR/local.d/rspamd.conf.local' > /etc/rspamd/rspamd.conf.local \
+	&& apt-get autoremove --purge \
+	&& apt-get clean \
+	&& mkdir -p /run/rspamd \
+	&& chown _rspamd:_rspamd /run/rspamd
 
 COPY settings.conf /etc/rspamd/modules.d/settings.conf
-COPY antivirus.conf /etc/rspamd/modules.d/antivirus.conf
-COPY dkim_signing.lua /usr/share/rspamd/lua/dkim_signing.lua
-RUN pip install -U oletools
+#COPY ratelimit.lua /usr/share/rspamd/lua/ratelimit.lua
+#COPY lua_util.lua /usr/share/rspamd/lib/lua_util.lua
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
 
 CMD /usr/bin/rspamd -f -u _rspamd -g _rspamd
-
-RUN rm -rf /tmp/* /var/tmp/*
-
-USER _rspamd
-
-EXPOSE 11333 11334
