@@ -5,7 +5,6 @@ services:
       image: mailcow/unbound:1.0
       build: ./data/Dockerfiles/unbound
       command: /usr/sbin/unbound
-#      init: true
       depends_on:
         mysql-mailcow:
           condition: service_healthy
@@ -38,11 +37,9 @@ services:
         - MYSQL_DATABASE=${DBNAME}
         - MYSQL_USER=${DBUSER}
         - MYSQL_PASSWORD=${DBPASS}
-#      init: true
       restart: always
       dns:
         - 172.22.1.254
-      dns_search: mailcow-network
       networks:
         mailcow-network:
           ipv4_address: 172.22.1.250
@@ -59,7 +56,6 @@ services:
         - "6379:6379"
       dns:
         - 172.22.1.254
-      dns_search: mailcow-network
       networks:
         mailcow-network:
           ipv4_address: 172.22.1.249
@@ -67,15 +63,13 @@ services:
             - redis
 
     clamd-mailcow:
-      image: mailcow/clamd:1.3
+      image: mailcow/clamd:1.5
       build: ./data/Dockerfiles/clamd
-      restart: on-failure
+      restart: always
       environment:
         - SKIP_CLAMD=${SKIP_CLAMD:-n}
-#      init: true
       dns:
         - 172.22.1.254
-      dns_search: mailcow-network
       networks:
         mailcow-network:
           aliases:
@@ -84,9 +78,9 @@ services:
         - /etc/localtime:/etc/localtime:ro
 
     rspamd-mailcow:
-      image: mailcow/rspamd:1.8
+      image: mailcow/rspamd:1.14
       build: ./data/Dockerfiles/rspamd
-      command: "/usr/bin/rspamd -f -u _rspamd -g _rspamd"
+      stop_grace_period: 30s
       depends_on:
         - nginx-mailcow
       volumes:
@@ -98,10 +92,8 @@ services:
         - rspamd-vol-1:/var/lib/rspamd:z
         - /etc/localtime:/etc/localtime:ro
       restart: always
-#      init: true
       dns:
         - 172.22.1.254
-      dns_search: mailcow-network
       hostname: rspamd
       networks:
         mailcow-network:
@@ -110,13 +102,13 @@ services:
             - rspamd
 
     php-fpm-mailcow:
-      image: mailcow/phpfpm:1.1
+      image: mailcow/phpfpm:1.5
       build: ./data/Dockerfiles/phpfpm
-      command: "php-fpm -d date.timezone=${TZ}"
+      command: "php-fpm -d date.timezone=${TZ} -d expose_php=0"
       depends_on:
         - redis-mailcow
       volumes:
-        - ./data/web:/web:ro,z
+        - ./data/web:/web:rw,z
         - ./data/conf/rspamd/dynmaps:/dynmaps:ro,z
         - dkim-vol-1:/data/dkim:z
         - /etc/localtime:/etc/localtime:ro
@@ -136,14 +128,13 @@ services:
       restart: always
       dns:
         - 172.22.1.254
-      dns_search: mailcow-network
       networks:
         mailcow-network:
           aliases:
             - phpfpm
 
     sogo-mailcow:
-      image: mailcow/sogo:1.8
+      image: mailcow/sogo:1.10
       build: ./data/Dockerfiles/sogo
       environment:
         - DBNAME=${DBNAME}
@@ -157,7 +148,6 @@ services:
       restart: always
       dns:
         - 172.22.1.254
-      dns_search: mailcow-network
       networks:
         mailcow-network:
           ipv4_address: 172.22.1.252
@@ -165,8 +155,10 @@ services:
             - sogo
 
     dovecot-mailcow:
-      image: mailcow/dovecot:1.8
+      image: mailcow/dovecot:1.12
       build: ./data/Dockerfiles/dovecot
+      cap_add:
+        - NET_BIND_SERVICE
       volumes:
         - ./data/conf/dovecot:/usr/local/etc/dovecot:z
         - ./data/assets/ssl:/etc/ssl/mail/:ro,z
@@ -194,7 +186,6 @@ services:
           hard: 40000
       dns:
         - 172.22.1.254
-      dns_search: mailcow-network
       hostname: ${MAILCOW_HOSTNAME}
       networks:
         mailcow-network:
@@ -202,7 +193,7 @@ services:
             - dovecot
 
     postfix-mailcow:
-      image: mailcow/postfix:1.4
+      image: mailcow/postfix:1.7
       build: ./data/Dockerfiles/postfix
       volumes:
         - ./data/conf/postfix:/opt/postfix/conf:z
@@ -221,7 +212,6 @@ services:
       restart: always
       dns:
         - 172.22.1.254
-      dns_search: mailcow-network
       hostname: ${MAILCOW_HOSTNAME}
       networks:
         mailcow-network:
@@ -237,7 +227,6 @@ services:
       restart: always
       dns:
         - 172.22.1.254
-      dns_search: mailcow-network
       networks:
         mailcow-network:
           aliases:
@@ -247,11 +236,15 @@ services:
       depends_on:
         - sogo-mailcow
         - php-fpm-mailcow
+        - redis-mailcow
       image: nginx:mainline-alpine
       command: /bin/sh -c "envsubst < /etc/nginx/conf.d/templates/listen_plain.template > /etc/nginx/conf.d/listen_plain.active &&
         envsubst < /etc/nginx/conf.d/templates/listen_ssl.template > /etc/nginx/conf.d/listen_ssl.active &&
         envsubst < /etc/nginx/conf.d/templates/server_name.template > /etc/nginx/conf.d/server_name.active &&
+        nginx -qt &&
         until ping phpfpm -c1 > /dev/null; do sleep 1; done &&
+        until ping sogo -c1 > /dev/null; do sleep 1; done &&
+        until ping redis -c1 > /dev/null; do sleep 1; done &&
         exec nginx -g 'daemon off;'"
       environment:
         - HTTPS_PORT=${HTTPS_PORT:-443}
@@ -269,7 +262,6 @@ services:
       restart: always
       dns:
         - 172.22.1.254
-      dns_search: mailcow-network
       networks:
         mailcow-network:
           ipv4_address: 172.22.1.251
@@ -279,12 +271,11 @@ services:
     acme-mailcow:
       depends_on:
         - nginx-mailcow
-      image: mailcow/acme:1.17
+        - mysql-mailcow
+      image: mailcow/acme:1.24
       build: ./data/Dockerfiles/acme
-#      init: true
       dns:
         - 172.22.1.254
-      dns_search: mailcow-network
       environment:
         - ADDITIONAL_SAN=${ADDITIONAL_SAN}
         - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
@@ -294,22 +285,20 @@ services:
         - SKIP_LETS_ENCRYPT=${SKIP_LETS_ENCRYPT:-n}
         - SKIP_IP_CHECK=${SKIP_IP_CHECK:-n}
       volumes:
-        - ./data/web/.well-known/acme-challenge:/var/www/acme:rw
-        - ./data/assets/ssl:/var/lib/acme/:rw
-        - ./data/assets/ssl-example:/var/lib/ssl-example/:ro
-        - /var/run/docker.sock:/var/run/docker.sock:ro
-      security_opt:
-        - label:disable
-      # do not restart the container too often. Things get worse when we hit let's encrypt's ratelimit.
-      restart: on-failure:1
+        - ./data/web/.well-known/acme-challenge:/var/www/acme:rw,z
+        - ./data/assets/ssl:/var/lib/acme/:rw,z
+        - ./data/assets/ssl-example:/var/lib/ssl-example/:ro,z
+        - /etc/localtime:/etc/localtime:ro
+      restart: always
       networks:
         mailcow-network:
           aliases:
             - acme
 
     fail2ban-mailcow:
-      image: mailcow/fail2ban:1.6
+      image: mailcow/fail2ban:1.9
       build: ./data/Dockerfiles/fail2ban
+      stop_grace_period: 30s
       depends_on:
         - dovecot-mailcow
         - postfix-mailcow
@@ -318,17 +307,50 @@ services:
         - redis-mailcow
       restart: always
       privileged: true
-#      init: true
       environment:
         - TZ=${TZ}
-        - SKIP_FAIL2BAN=${SKIP_FAIL2BAN:-no}
+        - SKIP_FAIL2BAN=${SKIP_FAIL2BAN:-n}
       network_mode: "host"
       dns:
         - 172.22.1.254
-      dns_search: mailcow-network
       volumes:
         - /lib/modules:/lib/modules:ro
         - /etc/localtime:/etc/localtime:ro
+
+    watchdog-mailcow:
+      image: mailcow/watchdog:1.10
+      build: ./data/Dockerfiles/watchdog
+      volumes:
+        - vmail-vol-1:/vmail:ro,z
+        - /etc/localtime:/etc/localtime:ro
+      restart: always
+      environment:
+        - DBNAME=${DBNAME}
+        - DBUSER=${DBUSER}
+        - DBPASS=${DBPASS}
+        - USE_WATCHDOG=${USE_WATCHDOG:-n}
+        - WATCHDOG_NOTIFY_EMAIL=${WATCHDOG_NOTIFY_EMAIL}
+        - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
+      networks:
+        mailcow-network:
+          ipv4_address: 172.22.1.248
+          aliases:
+            - watchdog
+
+    dockerapi-mailcow:
+      image: mailcow/dockerapi:1.2
+      restart: always
+      build: ./data/Dockerfiles/dockerapi
+      oom_score_adj: -10
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock:ro
+        - /etc/localtime:/etc/localtime:ro
+      security_opt:
+        - label:disable
+      networks:
+        mailcow-network:
+          aliases:
+            - dockerapi
 
     # ipv6nat:
     #   image: robbertkl/ipv6nat
