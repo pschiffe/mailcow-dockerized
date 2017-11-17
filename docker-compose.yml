@@ -370,6 +370,8 @@ networks:
       config:
         - subnet: 172.22.1.0/24
         # - subnet: fd4d:6169:6c63:6f77::/64
+    driver_opts:
+      com.docker.network.driver.mtu: 1458
 
 volumes:
   vmail-vol-1:
