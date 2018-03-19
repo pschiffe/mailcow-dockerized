@@ -62,9 +62,10 @@ jQuery(function($){
           $.each(data, function (i, item) {
             if (acl_data.spam_alias === 1) {
               item.action = '<div class="btn-group">' +
-                '<a href="#" id="delete_selected" data-id="single-tla" data-api-url="delete/time_limited_alias" data-item="' + encodeURI(item.address) + '" class="btn btn-xs btn-danger"><span class="glyphicon glyphicon-trash"></span> ' + lang.remove + '</a>' +
+                '<a href="#" id="delete_selected" data-id="single-tla" data-api-url="delete/time_limited_alias" data-item="' + encodeURIComponent(item.address) + '" class="btn btn-xs btn-danger"><span class="glyphicon glyphicon-trash"></span> ' + lang.remove + '</a>' +
                 '</div>';
-              item.chkbox = '<input type="checkbox" data-id="tla" name="multi_select" value="' + item.address + '" />';
+              item.chkbox = '<input type="checkbox" data-id="tla" name="multi_select" value="' + encodeURIComponent(item.address) + '" />';
+              item.address = escapeHtml(item.address);
             }
             else {
               item.chkbox = '<input type="checkbox" disabled />';
@@ -86,14 +87,14 @@ jQuery(function($){
   function draw_sync_job_table() {
     ft_syncjob_table = FooTable.init('#sync_job_table', {
       "columns": [
-        {"name":"chkbox","title":"","style":{"maxWidth":"40px","width":"40px","text-align":"center"},"filterable": false,"sortable": false,"type":"html"},
+        {"name":"chkbox","title":"","style":{"maxWidth":"60px","width":"60px","text-align":"center"},"filterable": false,"sortable": false,"type":"html"},
         {"sorted": true,"name":"id","title":"ID","style":{"maxWidth":"60px","width":"60px","text-align":"center"}},
         {"name":"server_w_port","title":"Server"},
         {"name":"enc1","title":lang.encryption,"breakpoints":"xs sm"},
         {"name":"user1","title":lang.username},
-        {"name":"exclude","title":lang.excludes,"breakpoints":"xs sm"},
-        {"name":"mins_interval","title":lang.interval + " (min)"},
-        {"name":"last_run","title":lang.last_run,"breakpoints":"xs sm"},
+        {"name":"exclude","title":lang.excludes,"breakpoints":"all"},
+        {"name":"mins_interval","title":lang.interval + " (min)","breakpoints":"all"},
+        {"name":"last_run","title":lang.last_run,"breakpoints":"all"},
         {"name":"log","title":"Log"},
         {"name":"active","filterable": false,"style":{"maxWidth":"70px","width":"70px"},"title":lang.active},
         {"name":"is_running","filterable": false,"style":{"maxWidth":"120px","width":"100px"},"title":lang.status},
@@ -102,24 +103,25 @@ jQuery(function($){
       "empty": lang.empty,
       "rows": $.ajax({
         dataType: 'json',
-        url: '/api/v1/get/syncjobs/' + mailcow_cc_username + '/no_log',
+        url: '/api/v1/get/syncjobs/' + encodeURIComponent(mailcow_cc_username) + '/no_log',
         jsonp: false,
         error: function () {
           console.log('Cannot draw sync job table');
         },
         success: function (data) {
           $.each(data, function (i, item) {
-            item.log = '<a href="#syncjobLogModal" data-toggle="modal" data-syncjob-id="' + encodeURI(item.id) + '">Open logs</a>'
+            item.user1 = escapeHtml(item.user1);
+            item.log = '<a href="#syncjobLogModal" data-toggle="modal" data-syncjob-id="' + item.id + '">Open logs</a>'
             if (!item.exclude > 0) {
               item.exclude = '-';
             } else {
-              item.exclude  = '<code>' + item.exclude + '</code>';
+              item.exclude  = '<code>' + escapeHtml(item.exclude) + '</code>';
             }
-            item.server_w_port = item.user1 + '@' + item.host1 + ':' + item.port1;
+            item.server_w_port = escapeHtml(item.user1 + '@' + item.host1 + ':' + item.port1);
             if (acl_data.syncjobs === 1) {
               item.action = '<div class="btn-group">' +
                 '<a href="/edit.php?syncjob=' + item.id + '" class="btn btn-xs btn-default"><span class="glyphicon glyphicon-pencil"></span> ' + lang.edit + '</a>' +
-                '<a href="#" id="delete_selected" data-id="single-syncjob" data-api-url="delete/syncjob" data-item="' + encodeURI(item.id) + '" class="btn btn-xs btn-danger"><span class="glyphicon glyphicon-trash"></span> ' + lang.remove + '</a>' +
+                '<a href="#" id="delete_selected" data-id="single-syncjob" data-api-url="delete/syncjob" data-item="' + item.id + '" class="btn btn-xs btn-danger"><span class="glyphicon glyphicon-trash"></span> ' + lang.remove + '</a>' +
                 '</div>';
               item.chkbox = '<input type="checkbox" data-id="syncjob" name="multi_select" value="' + item.id + '" />';
             }
@@ -238,7 +240,7 @@ jQuery(function($){
     $('#user_sieve_filter').text(lang.loading);
     $.ajax({
       dataType: 'json',
-      url: '/api/v1/get/active-user-sieve/' + mailcow_cc_username,
+      url: '/api/v1/get/active-user-sieve/' + encodeURIComponent(mailcow_cc_username),
       jsonp: false,
       error: function () {
         console.log('Cannot get active sieve script');

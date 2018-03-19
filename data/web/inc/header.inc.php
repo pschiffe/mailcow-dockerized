@@ -1,10 +1,12 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="<?= $_SESSION['mailcow_locale'] ?>">
 <head>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>mailcow UI</title>
+<meta name="theme-color" content="#F5D76E"/>
+<meta http-equiv="Referrer-Policy" content="same-origin">
+<title><?=$UI_TEXTS['title_name'];?></title>
 <!--[if lt IE 9]>
   <script src="/js/html5shiv.min.js"></script>
   <script src="/js/respond.min.js"></script>
@@ -15,6 +17,7 @@
 <?php else: ?>
 <link rel="stylesheet" href="/css/bootstrap.min.css">
 <?php endif; ?>
+<link rel="stylesheet" href="/css/breakpoint.min.css">
 <link rel="stylesheet" href="/css/bootstrap-select.min.css">
 <link rel="stylesheet" href="/css/bootstrap-slider.min.css">
 <link rel="stylesheet" href="/css/bootstrap-switch.min.css">
@@ -27,15 +30,17 @@
 <?= (preg_match("/admin.php/i", $_SERVER['REQUEST_URI'])) ? '<link rel="stylesheet" href="/css/admin.css">' : null; ?>
 <?= (preg_match("/user.php/i", $_SERVER['REQUEST_URI'])) ? '<link rel="stylesheet" href="/css/user.css">' : null; ?>
 <?= (preg_match("/edit.php/i", $_SERVER['REQUEST_URI'])) ? '<link rel="stylesheet" href="/css/edit.css">' : null; ?>
+<?= (preg_match("/quarantine.php/i", $_SERVER['REQUEST_URI'])) ? '<link rel="stylesheet" href="/css/quarantine.css">' : null; ?>
+<?= (preg_match("/debug.php/i", $_SERVER['REQUEST_URI'])) ? '<link rel="stylesheet" href="/css/debug.css">' : null; ?>
 <link rel="shortcut icon" href="/favicon.png" type="image/png">
 <link rel="icon" href="/favicon.png" type="image/png">
 </head>
-<body style="padding-top: 70px;" id="top">
+<body id="top">
+<div class="overlay"></div>
 <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
   <div class="container-fluid">
     <div class="navbar-header">
       <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-        <span class="sr-only">Toggle navigation</span>
         <span class="icon-bar"></span>
         <span class="icon-bar"></span>
         <span class="icon-bar"></span>
@@ -47,7 +52,7 @@
         <?php
         if (isset($_SESSION['mailcow_locale'])) {
         ?>
-        <li class="dropdown">
+        <li class="dropdown<?=(isset($_SESSION['mailcow_locale']) && count($AVAILABLE_LANGUAGES) === 1) ? ' lang-link-disabled"' : '' ?>">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"><span class="lang-sm lang-lbl" lang="<?= $_SESSION['mailcow_locale']; ?>"></span><span class="caret"></span></a>
           <ul class="dropdown-menu" role="menu">
             <?php
@@ -71,6 +76,7 @@
               if ($_SESSION['mailcow_cc_role'] == 'admin') {
               ?>
                 <li<?= (preg_match("/admin/i", $_SERVER['REQUEST_URI'])) ? ' class="active"' : ''; ?>><a href="/admin.php"><?= $lang['header']['administration']; ?></a></li>
+                <li<?= (preg_match("/debug/i", $_SERVER['REQUEST_URI'])) ? ' class="active"' : ''; ?>><a href="/debug.php"><?= $lang['header']['debug']; ?></a></li>
               <?php
               }
               if ($_SESSION['mailcow_cc_role'] == 'admin' || $_SESSION['mailcow_cc_role'] == 'domainadmin') {
@@ -88,14 +94,19 @@
           </ul>
         </li>
         <?php
+        if (isset($_SESSION['mailcow_cc_role'])) {
+        ?>
+        <li<?= (preg_match("/quarantine/i", $_SERVER['REQUEST_URI'])) ? ' class="active"' : ''; ?>><a href="/quarantine.php"><span class="glyphicon glyphicon-briefcase"></span> <?= $lang['header']['quarantine']; ?></a></li>
+        <?php
+        }
         if ($_SESSION['mailcow_cc_role'] == 'admin') {
         ?>
-        <li><a href data-toggle="modal" data-target="#RestartSOGo"><span style="font-size: 12px;" class="glyphicon glyphicon-refresh" aria-hidden="true"></span> <?= $lang['header']['restart_sogo']; ?></a></li>
+        <li><a href data-toggle="modal" data-container="sogo-mailcow" data-target="#RestartContainer"><span class="glyphicon glyphicon-refresh"></span> <?= $lang['header']['restart_sogo']; ?></a></li>
         <?php
         }
         ?>
         <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"><span class="glyphicon glyphicon-link" aria-hidden="true"></span> Apps <span class="caret"></span></a>
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"><span class="glyphicon glyphicon-link"></span> Apps <span class="caret"></span></a>
           <ul class="dropdown-menu" role="menu">
           <?php
           foreach ($MAILCOW_APPS as $app):
@@ -108,7 +119,7 @@
             foreach ($row as $key => $val):
           ?>
             <li><a href="<?= htmlspecialchars($val); ?>"><?= htmlspecialchars($key); ?></a></li>
-          <?php 
+          <?php
             endforeach;
           }
           ?>
@@ -118,11 +129,11 @@
         }
         if (!isset($_SESSION['dual-login']) && isset($_SESSION['mailcow_cc_username'])):
         ?>
-          <li><a href="#" style="border-left: 1px solid #E7E7E7;" onclick="logout.submit()"><?= sprintf($lang['header']['logged_in_as_logout'], $_SESSION['mailcow_cc_username']); ?></a></li>
+          <li class="logged-in-as"><a href="#" onclick="logout.submit()"><b><?= htmlspecialchars($_SESSION['mailcow_cc_username']); ?></b> <span class="glyphicon glyphicon-log-out"></span></a></li>
         <?php
         elseif (isset($_SESSION['dual-login'])):
         ?>
-          <li><a href="#" style="border-left: 1px solid #E7E7E7;" onclick="logout.submit()"><?= sprintf($lang['header']['logged_in_as_logout_dual'], $_SESSION['mailcow_cc_username'], $_SESSION['dual-login']['username']); ?></a></li>
+          <li class="logged-in-as"><a href="#" onclick="logout.submit()"><b><?= htmlspecialchars($_SESSION['mailcow_cc_username']); ?> <span class="text-info">(<?= htmlspecialchars($_SESSION['dual-login']['username']); ?>)</span> </b><span class="glyphicon glyphicon-log-out"></span></a></li>
         <?php
         endif;
         ?>

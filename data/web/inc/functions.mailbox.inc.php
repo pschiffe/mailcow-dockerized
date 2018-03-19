@@ -213,23 +213,29 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
             return false;
           }
           $active  = intval($_data['active']);
-          $delete2duplicates = intval($_data['delete2duplicates']);
-          $delete1  = intval($_data['delete1']);
-          $delete2  = intval($_data['delete2']);
-          $port1            = $_data['port1'];
-          $host1            = strtolower($_data['host1']);
-          $password1        = $_data['password1'];
-          $exclude          = $_data['exclude'];
-          $maxage           = $_data['maxage'];
-          $subfolder2       = $_data['subfolder2'];
-          $user1            = $_data['user1'];
-          $mins_interval    = $_data['mins_interval'];
-          $enc1             = $_data['enc1'];
+          $delete2duplicates    = intval($_data['delete2duplicates']);
+          $delete1              = intval($_data['delete1']);
+          $delete2              = intval($_data['delete2']);
+          $skipcrossduplicates  = intval($_data['skipcrossduplicates']);
+          $automap              = intval($_data['automap']);
+          $port1                = $_data['port1'];
+          $host1                = strtolower($_data['host1']);
+          $password1            = $_data['password1'];
+          $exclude              = $_data['exclude'];
+          $maxage               = $_data['maxage'];
+          $maxbytespersecond    = $_data['maxbytespersecond'];
+          $subfolder2           = $_data['subfolder2'];
+          $user1                = $_data['user1'];
+          $mins_interval        = $_data['mins_interval'];
+          $enc1                = $_data['enc1'];
           if (empty($subfolder2)) {
             $subfolder2 = "";
           }
           if (!isset($maxage) || !filter_var($maxage, FILTER_VALIDATE_INT, array('options' => array('min_range' => 1, 'max_range' => 32767)))) {
             $maxage = "0";
+          }
+          if (!isset($maxbytespersecond) || !filter_var($maxbytespersecond, FILTER_VALIDATE_INT, array('options' => array('min_range' => 1, 'max_range' => 125000000)))) {
+            $maxbytespersecond = "0";
           }
           if (!filter_var($port1, FILTER_VALIDATE_INT, array('options' => array('min_range' => 1, 'max_range' => 65535)))) {
             $_SESSION['return'] = array(
@@ -238,7 +244,7 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
             );
             return false;
           }
-          if (!filter_var($mins_interval, FILTER_VALIDATE_INT, array('options' => array('min_range' => 10, 'max_range' => 3600)))) {
+          if (!filter_var($mins_interval, FILTER_VALIDATE_INT, array('options' => array('min_range' => 1, 'max_range' => 3600)))) {
             $_SESSION['return'] = array(
               'type' => 'danger',
               'msg' => sprintf($lang['danger']['access_denied'])
@@ -287,14 +293,17 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
             return false;
           }
           try {
-            $stmt = $pdo->prepare("INSERT INTO `imapsync` (`user2`, `exclude`, `delete1`, `delete2`, `maxage`, `subfolder2`, `host1`, `authmech1`, `user1`, `password1`, `mins_interval`, `port1`, `enc1`, `delete2duplicates`, `active`)
-              VALUES (:user2, :exclude, :maxage, :delete1, :delete2, :subfolder2, :host1, :authmech1, :user1, :password1, :mins_interval, :port1, :enc1, :delete2duplicates, :active)");
+            $stmt = $pdo->prepare("INSERT INTO `imapsync` (`user2`, `exclude`, `delete1`, `delete2`, `automap`, `skipcrossduplicates`, `maxbytespersecond`, `maxage`, `subfolder2`, `host1`, `authmech1`, `user1`, `password1`, `mins_interval`, `port1`, `enc1`, `delete2duplicates`, `active`)
+              VALUES (:user2, :exclude, :delete1, :delete2, :automap, :skipcrossduplicates, :maxbytespersecond, :maxage, :subfolder2, :host1, :authmech1, :user1, :password1, :mins_interval, :port1, :enc1, :delete2duplicates, :active)");
             $stmt->execute(array(
               ':user2' => $username,
               ':exclude' => $exclude,
               ':maxage' => $maxage,
               ':delete1' => $delete1,
               ':delete2' => $delete2,
+              ':automap' => $automap,
+              ':skipcrossduplicates' => $skipcrossduplicates,
+              ':maxbytespersecond' => $maxbytespersecond,
               ':subfolder2' => $subfolder2,
               ':host1' => $host1,
               ':authmech1' => 'PLAIN',
@@ -333,6 +342,7 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
           $aliases			= $_data['aliases'];
           $mailboxes    = $_data['mailboxes'];
           $maxquota			= $_data['maxquota'];
+          $restart_sogo = $_data['restart_sogo'];
           $quota				= $_data['quota'];
           if ($maxquota > $quota) {
             $_SESSION['return'] = array(
@@ -416,10 +426,21 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
               );
               return false;
             }
-            $_SESSION['return'] = array(
-              'type' => 'success',
-              'msg' => sprintf($lang['success']['domain_added'], htmlspecialchars($domain))
-            );
+            if (!empty($restart_sogo)) {
+              $restart_reponse = json_decode(docker('sogo-mailcow', 'post', 'restart'), true);
+              if ($restart_reponse['type'] == "success") {
+                $_SESSION['return'] = array(
+                  'type' => 'success',
+                  'msg' => sprintf($lang['success']['domain_added'], htmlspecialchars($domain))
+                );
+              }
+              else {
+                $_SESSION['return'] = array(
+                  'type' => 'warning',
+                  'msg' => 'Added domain but failed to restart SOGo, please check your server logs.'
+                );
+              }
+            }
           }
           catch (PDOException $e) {
             mailbox('delete', 'domain', array('domain' => $domain));
@@ -490,9 +511,20 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
             if (in_array($address, $gotos)) {
               continue;
             }
+            $domain       = idn_to_ascii(substr(strstr($address, '@'), 1));
+            $local_part   = strstr($address, '@', true);
+            $address      = $local_part.'@'.$domain;
             $stmt = $pdo->prepare("SELECT `address` FROM `alias`
-              WHERE `address`= :address");
-            $stmt->execute(array(':address' => $address));
+              WHERE `address`= :address OR `address` IN (
+                SELECT `username` FROM `mailbox`, `alias_domain`
+                  WHERE (
+                    `alias_domain`.`alias_domain` = :address_d
+                      AND `mailbox`.`username` = CONCAT(:address_l, '@', alias_domain.target_domain)))");
+            $stmt->execute(array(
+              ':address' => $address,
+              ':address_l' => $local_part,
+              ':address_d' => $domain
+            ));
             $num_results = count($stmt->fetchAll(PDO::FETCH_ASSOC));
             if ($num_results != 0) {
               $_SESSION['return'] = array(
@@ -501,9 +533,6 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
               );
               return false;
             }
-            $domain       = idn_to_ascii(substr(strstr($address, '@'), 1));
-            $local_part   = strstr($address, '@', true);
-            $address      = $local_part.'@'.$domain;
             $domaindata = mailbox('get', 'domain_details', $domain);
             if (is_array($domaindata) && $domaindata['aliases_left'] == "0") {
               $_SESSION['return'] = array(
@@ -689,6 +718,16 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
               );
               return false;
             }
+            try {
+              $redis->hSet('DOMAIN_MAP', $alias_domain, 1);
+            }
+            catch (RedisException $e) {
+              $_SESSION['return'] = array(
+                'type' => 'danger',
+                'msg' => 'Redis: '.$e
+              );
+              return false;
+            }
           }
           $_SESSION['return'] = array(
             'type' => 'success',
@@ -722,7 +761,7 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
           }
           $active = intval($_data['active']);
           $quota_b		= ($quota_m * 1048576);
-          $maildir		= $domain."/".$local_part."/";
+          $maildir		= $domain . "/" . $local_part . "/";
           if (!is_valid_domain_name($domain)) {
             $_SESSION['return'] = array(
               'type' => 'danger',
@@ -852,8 +891,8 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
             return false;
           }
           try {
-            $stmt = $pdo->prepare("INSERT INTO `mailbox` (`username`, `password`, `name`, `maildir`, `quota`, `local_part`, `domain`, `active`) 
-              VALUES (:username, :password_hashed, :name, :maildir, :quota_b, :local_part, :domain, :active)");
+            $stmt = $pdo->prepare("INSERT INTO `mailbox` (`username`, `password`, `name`, `maildir`, `quota`, `local_part`, `domain`, `attributes`, `active`) 
+              VALUES (:username, :password_hashed, :name, :maildir, :quota_b, :local_part, :domain, '{\"force_pw_update\": \"0\", \"tls_enforce_in\": \"0\", \"tls_enforce_out\": \"0\"}', :active)");
             $stmt->execute(array(
               ':username' => $username,
               ':password_hashed' => $password_hashed,
@@ -1113,10 +1152,10 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
               return false;
             }
             try {
-              $stmt = $pdo->prepare("UPDATE `mailbox` SET `tls_enforce_out` = :tls_out, `tls_enforce_in` = :tls_in WHERE `username` = :username");
+              $stmt = $pdo->prepare("UPDATE `mailbox` SET `attributes` = JSON_SET(`attributes`, '$.tls_enforce_out', :tls_out), `attributes` = JSON_SET(`attributes`, '$.tls_enforce_in', :tls_in) WHERE `username` = :username");
               $stmt->execute(array(
-                ':tls_out' => $tls_enforce_out,
-                ':tls_in' => $tls_enforce_in,
+                ':tls_out' => intval($tls_enforce_out),
+                ':tls_in' => intval($tls_enforce_in),
                 ':username' => $username
               ));
             }
@@ -1278,6 +1317,20 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
             if (isset($_data['tagged_mail_handler']) && $_data['tagged_mail_handler'] == "subject") {
               try {
                 $redis->hSet('RCPT_WANTS_SUBJECT_TAG', $username, 1);
+                $redis->hDel('RCPT_WANTS_SUBFOLDER_TAG', $username);
+              }
+              catch (RedisException $e) {
+                $_SESSION['return'] = array(
+                  'type' => 'danger',
+                  'msg' => 'Redis: '.$e
+                );
+                return false;
+              }
+            }
+            else if (isset($_data['tagged_mail_handler']) && $_data['tagged_mail_handler'] == "subfolder") {
+              try {
+                $redis->hSet('RCPT_WANTS_SUBFOLDER_TAG', $username, 1);
+                $redis->hDel('RCPT_WANTS_SUBJECT_TAG', $username);
               }
               catch (RedisException $e) {
                 $_SESSION['return'] = array(
@@ -1290,6 +1343,7 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
             else {
               try {
                 $redis->hDel('RCPT_WANTS_SUBJECT_TAG', $username);
+                $redis->hDel('RCPT_WANTS_SUBFOLDER_TAG', $username);
               }
               catch (RedisException $e) {
                 $_SESSION['return'] = array(
@@ -1399,14 +1453,17 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
               $delete2duplicates = (isset($_data['delete2duplicates'])) ? intval($_data['delete2duplicates']) : $is_now['delete2duplicates'];
               $delete1 = (isset($_data['delete1'])) ? intval($_data['delete1']) : $is_now['delete1'];
               $delete2 = (isset($_data['delete2'])) ? intval($_data['delete2']) : $is_now['delete2'];
+              $automap = (isset($_data['automap'])) ? intval($_data['automap']) : $is_now['automap'];
+              $skipcrossduplicates = (isset($_data['skipcrossduplicates'])) ? intval($_data['skipcrossduplicates']) : $is_now['skipcrossduplicates'];
               $port1 = (!empty($_data['port1'])) ? $_data['port1'] : $is_now['port1'];
               $password1 = (!empty($_data['password1'])) ? $_data['password1'] : $is_now['password1'];
               $host1 = (!empty($_data['host1'])) ? $_data['host1'] : $is_now['host1'];
               $subfolder2 = (isset($_data['subfolder2'])) ? $_data['subfolder2'] : $is_now['subfolder2'];
               $enc1 = (!empty($_data['enc1'])) ? $_data['enc1'] : $is_now['enc1'];
               $mins_interval = (!empty($_data['mins_interval'])) ? $_data['mins_interval'] : $is_now['mins_interval'];
-              $exclude = (!empty($_data['exclude'])) ? $_data['exclude'] : '';
+              $exclude = (isset($_data['exclude'])) ? $_data['exclude'] : $is_now['exclude'];
               $maxage = (isset($_data['maxage']) && $_data['maxage'] != "") ? intval($_data['maxage']) : $is_now['maxage'];
+              $maxbytespersecond = (isset($_data['maxbytespersecond']) && $_data['maxbytespersecond'] != "") ? intval($_data['maxbytespersecond']) : $is_now['maxbytespersecond'];
             }
             else {
               $_SESSION['return'] = array(
@@ -1421,6 +1478,9 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
             if (!isset($maxage) || !filter_var($maxage, FILTER_VALIDATE_INT, array('options' => array('min_range' => 1, 'max_range' => 32767)))) {
               $maxage = "0";
             }
+            if (!isset($maxbytespersecond) || !filter_var($maxbytespersecond, FILTER_VALIDATE_INT, array('options' => array('min_range' => 1, 'max_range' => 125000000)))) {
+              $maxbytespersecond = "0";
+            }
             if (!filter_var($port1, FILTER_VALIDATE_INT, array('options' => array('min_range' => 1, 'max_range' => 65535)))) {
               $_SESSION['return'] = array(
                 'type' => 'danger',
@@ -1428,7 +1488,7 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
               );
               return false;
             }
-            if (!filter_var($mins_interval, FILTER_VALIDATE_INT, array('options' => array('min_range' => 10, 'max_range' => 3600)))) {
+            if (!filter_var($mins_interval, FILTER_VALIDATE_INT, array('options' => array('min_range' => 1, 'max_range' => 3600)))) {
               $_SESSION['return'] = array(
                 'type' => 'danger',
                 'msg' => sprintf($lang['danger']['access_denied'])
@@ -1457,14 +1517,33 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
               return false;
             }
             try {
-              $stmt = $pdo->prepare("UPDATE `imapsync` SET `delete1` = :delete1, `delete2` = :delete2, `maxage` = :maxage, `subfolder2` = :subfolder2, `exclude` = :exclude, `host1` = :host1, `last_run` = :last_run, `user1` = :user1, `password1` = :password1, `mins_interval` = :mins_interval, `port1` = :port1, `enc1` = :enc1, `delete2duplicates` = :delete2duplicates, `active` = :active
-                WHERE `id` = :id");
+              $stmt = $pdo->prepare("UPDATE `imapsync` SET `delete1` = :delete1,
+                `delete2` = :delete2,
+                `automap` = :automap,
+                `skipcrossduplicates` = :skipcrossduplicates,
+                `maxage` = :maxage,
+                `maxbytespersecond` = :maxbytespersecond,
+                `subfolder2` = :subfolder2,
+                `exclude` = :exclude,
+                `host1` = :host1,
+                `last_run` = :last_run,
+                `user1` = :user1,
+                `password1` = :password1,
+                `mins_interval` = :mins_interval,
+                `port1` = :port1,
+                `enc1` = :enc1,
+                `delete2duplicates` = :delete2duplicates,
+                `active` = :active
+                  WHERE `id` = :id");
               $stmt->execute(array(
                 ':delete1' => $delete1,
                 ':delete2' => $delete2,
+                ':automap' => $automap,
+                ':skipcrossduplicates' => $skipcrossduplicates,
                 ':id' => $id,
                 ':exclude' => $exclude,
                 ':maxage' => $maxage,
+                ':maxbytespersecond' => $maxbytespersecond,
                 ':subfolder2' => $subfolder2,
                 ':host1' => $host1,
                 ':user1' => $user1,
@@ -1875,6 +1954,7 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
             $is_now = mailbox('get', 'mailbox_details', $username);
             if (!empty($is_now)) {
               $active     = (isset($_data['active'])) ? intval($_data['active']) : $is_now['active_int'];
+              (int)$force_pw_update = (isset($_data['force_pw_update'])) ? intval($_data['force_pw_update']) : intval($is_now['attributes']['force_pw_update']);
               $name       = (!empty($_data['name'])) ? $_data['name'] : $is_now['name'];
               $domain     = $is_now['domain'];
               $quota_m    = (!empty($_data['quota'])) ? $_data['quota'] : ($is_now['quota'] / 1048576);
@@ -2034,24 +2114,11 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
               }
               $password_hashed = hash_password($password);
               try {
-                $stmt = $pdo->prepare("UPDATE `alias` SET
-                    `active` = :active
-                      WHERE `address` = :address");
-                $stmt->execute(array(
-                  ':address' => $username,
-                  ':active' => $active
-                ));
                 $stmt = $pdo->prepare("UPDATE `mailbox` SET
-                    `active` = :active,
-                    `password` = :password_hashed,
-                    `name`= :name,
-                    `quota` = :quota_b
+                    `password` = :password_hashed
                       WHERE `username` = :username");
                 $stmt->execute(array(
                   ':password_hashed' => $password_hashed,
-                  ':active' => $active,
-                  ':name' => $name,
-                  ':quota_b' => $quota_b,
                   ':username' => $username
                 ));
               }
@@ -2074,12 +2141,14 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
               $stmt = $pdo->prepare("UPDATE `mailbox` SET
                   `active` = :active,
                   `name`= :name,
-                  `quota` = :quota_b
+                  `quota` = :quota_b,
+                  `attributes` = JSON_SET(`attributes`, '$.force_pw_update', :force_pw_update)
                     WHERE `username` = :username");
               $stmt->execute(array(
                 ':active' => $active,
                 ':name' => $name,
                 ':quota_b' => $quota_b,
+                ':force_pw_update' => $force_pw_update,
                 ':username' => $username
               ));
             }
@@ -2302,7 +2371,7 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
           }
           else {
             try {
-              $stmt = $pdo->prepare("SELECT `username` FROM `mailbox` WHERE `kind` NOT REGEXP 'location|thing|group' AND `domain` IN (SELECT `domain` FROM `domain_admins` WHERE `active` = '1' AND `username` = :username) OR 'admin' = :role");
+              $stmt = $pdo->prepare("SELECT `username` FROM `mailbox` WHERE `kind` NOT REGEXP 'location|thing|group' AND (`domain` IN (SELECT `domain` FROM `domain_admins` WHERE `active` = '1' AND `username` = :username) OR 'admin' = :role)");
               $stmt->execute(array(
                 ':username' => $_SESSION['mailcow_cc_username'],
                 ':role' => $_SESSION['mailcow_cc_role'],
@@ -2323,7 +2392,7 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
           return $mailboxes;
         break;
         case 'tls_policy':
-          $policydata = array();
+          $attrs = array();
           if (isset($_data) && filter_var($_data, FILTER_VALIDATE_EMAIL)) {
             if (!hasMailboxObjectAccess($_SESSION['mailcow_cc_username'], $_SESSION['mailcow_cc_role'], $_data)) {
               return false;
@@ -2333,9 +2402,9 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
             $_data = $_SESSION['mailcow_cc_username'];
           }
           try {
-            $stmt = $pdo->prepare("SELECT `tls_enforce_out`, `tls_enforce_in` FROM `mailbox` WHERE `username` = :username");
+            $stmt = $pdo->prepare("SELECT `attributes` FROM `mailbox` WHERE `username` = :username");
             $stmt->execute(array(':username' => $_data));
-            $policydata = $stmt->fetch(PDO::FETCH_ASSOC);
+            $attrs = $stmt->fetch(PDO::FETCH_ASSOC);
           }
           catch(PDOException $e) {
             $_SESSION['return'] = array(
@@ -2344,7 +2413,11 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
             );
             return false;
           }
-          return $policydata;
+          $attrs = json_decode($attrs['attributes'], true);
+          return array(
+            'tls_enforce_in' => $attrs['tls_enforce_in'],
+            'tls_enforce_out' => $attrs['tls_enforce_out']
+          );
         break;
         case 'filters':
           $filters = array();
@@ -2602,8 +2675,11 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
             if ($redis->hGet('RCPT_WANTS_SUBJECT_TAG', $_data)) {
               return "subject";
             }
-            else {
+            elseif ($redis->hGet('RCPT_WANTS_SUBFOLDER_TAG', $_data)) {
               return "subfolder";
+            }
+            else {
+              return "none";
             }
           }
           catch (RedisException $e) {
@@ -2988,6 +3064,7 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
                 `mailbox`.`domain`,
                 `mailbox`.`quota`,
                 `quota2`.`bytes`,
+                `attributes`,
                 `quota2`.`messages`
                   FROM `mailbox`, `quota2`, `domain`
                     WHERE `mailbox`.`kind` NOT REGEXP 'location|thing|group' AND `mailbox`.`username` = `quota2`.`username` AND `domain`.`domain` = `mailbox`.`domain` AND `mailbox`.`username` = :mailbox");
@@ -3015,6 +3092,7 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
             $mailboxdata['active_int'] = $row['active_int'];
             $mailboxdata['domain'] = $row['domain'];
             $mailboxdata['quota'] = $row['quota'];
+            $mailboxdata['attributes'] = json_decode($row['attributes'], true);
             $mailboxdata['quota_used'] = intval($row['bytes']);
             $mailboxdata['percent_in_use'] = round((intval($row['bytes']) / intval($row['quota'])) * 100);
             $mailboxdata['messages'] = $row['messages'];
@@ -3103,10 +3181,6 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
           }
           foreach ($ids as $id) {
             if (!is_numeric($id)) {
-              $_SESSION['return'] = array(
-                'type' => 'danger',
-                'msg' => $id
-              );
               return false;
             }
             try {
@@ -3154,10 +3228,6 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
           }
           foreach ($ids as $id) {
             if (!is_numeric($id)) {
-              $_SESSION['return'] = array(
-                'type' => 'danger',
-                'msg' => $id
-              );
               return false;
             }
             try {
@@ -3366,6 +3436,10 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
               $stmt->execute(array(
                 ':domain' => '%@'.$domain,
               ));
+              $stmt = $pdo->prepare("DELETE FROM `bcc_maps` WHERE `local_dest` = :domain");
+              $stmt->execute(array(
+                ':domain' => $domain,
+              ));
             }
             catch (PDOException $e) {
               $_SESSION['return'] = array(
@@ -3486,11 +3560,25 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
               $stmt->execute(array(
                 ':alias_domain' => $alias_domain,
               ));
+              $stmt = $pdo->prepare("DELETE FROM `bcc_maps` WHERE `local_dest` = :alias_domain");
+              $stmt->execute(array(
+                ':alias_domain' => $alias_domain,
+              ));
             }
             catch (PDOException $e) {
               $_SESSION['return'] = array(
                 'type' => 'danger',
                 'msg' => 'MySQL: '.$e
+              );
+              return false;
+            }
+            try {
+              $redis->hDel('DOMAIN_MAP', $alias_domain);
+            }
+            catch (RedisException $e) {
+              $_SESSION['return'] = array(
+                'type' => 'danger',
+                'msg' => 'Redis: '.$e
               );
               return false;
             }
@@ -3577,6 +3665,10 @@ function mailbox($_action, $_type, $_data = null, $attr = null) {
                 ':username' => $username
               ));
               $stmt = $pdo->prepare("DELETE FROM `sogo_folder_info` WHERE `c_path2` = :username");
+              $stmt->execute(array(
+                ':username' => $username
+              ));
+              $stmt = $pdo->prepare("DELETE FROM `bcc_maps` WHERE `local_dest` = :username");
               $stmt->execute(array(
                 ':username' => $username
               ));

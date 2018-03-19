@@ -14,7 +14,7 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
       </div>
       <div class="modal-body">
         <p><?=$lang['add']['syncjob_hint'];?></p>
-				<form class="form-horizontal" role="form" data-id="add_syncjob">
+				<form class="form-horizontal" data-cached-form="true" role="form" data-id="add_syncjob">
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="host1"><?=$lang['add']['hostname'];?></label>
 						<div class="col-sm-10">
@@ -53,7 +53,7 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="mins_interval"><?=$lang['add']['mins_interval'];?></label>
 						<div class="col-sm-10">
-              <input type="number" class="form-control" name="mins_interval" min="10" max="3600" value="20" required>
+              <input type="number" class="form-control" name="mins_interval" min="1" max="3600" value="20" required>
               <small class="help-block">10-3600</small>
 						</div>
 					</div>
@@ -68,6 +68,13 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
 						<div class="col-sm-10">
 						<input type="number" class="form-control" name="maxage" id="maxage" min="0" max="32000" value="0">
             <small class="help-block">0-32000</small>
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="maxbytespersecond"><?=$lang['edit']['maxbytespersecond'];?></label>
+						<div class="col-sm-10">
+						<input type="number" class="form-control" name="maxbytespersecond" id="maxbytespersecond" min="0" max="125000000" value="0">
+            <small class="help-block">0-125000000</small>
 						</div>
 					</div>
 					<div class="form-group">
@@ -94,6 +101,20 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
 						<div class="col-sm-offset-2 col-sm-10">
 							<div class="checkbox">
 							<label><input type="checkbox" value="1" name="delete2"> <?=$lang['add']['delete2'];?></label>
+							</div>
+						</div>
+					</div>
+          <div class="form-group">
+						<div class="col-sm-offset-2 col-sm-10">
+							<div class="checkbox">
+							<label><input type="checkbox" value="1" name="automap"> <?=$lang['add']['automap'];?></label>
+							</div>
+						</div>
+					</div>
+          <div class="form-group">
+						<div class="col-sm-offset-2 col-sm-10">
+							<div class="checkbox">
+							<label><input type="checkbox" value="1" name="skipcrossduplicates"> <?=$lang['add']['skipcrossduplicates'];?></label>
 							</div>
 						</div>
 					</div>
@@ -130,7 +151,7 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-body">
-        <form class="form-horizontal" data-id="pwchange" role="form" method="post" autocomplete="off">
+        <form class="form-horizontal" data-cached-form="true" data-id="pwchange" role="form" method="post" autocomplete="off">
           <div class="form-group">
             <label class="control-label col-sm-3" for="user_new_pass"><?=$lang['user']['new_password'];?></label>
             <div class="col-sm-5">
@@ -162,7 +183,7 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
   </div>
 </div><!-- pw change modal -->
 <!-- sieve filter modal -->
-<div class="modal fade" id="userFilterModal" tabindex="-1" role="dialog" aria-labelledby="pwChangeModalLabel">
+<div class="modal fade" id="userFilterModal" tabindex="-1" role="dialog">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">

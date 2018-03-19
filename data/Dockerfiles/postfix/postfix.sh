@@ -39,7 +39,7 @@ query = SELECT IF(EXISTS(
           SELECT CONCAT('%u', '@', target_domain) FROM alias_domain
             WHERE alias_domain='%d'
         )
-      ) AND mailbox.tls_enforce_in = '1' AND mailbox.active = '1'
+      ) AND json_extract(attributes, '$.tls_enforce_in') LIKE '%%1%%' AND mailbox.active = '1'
   ), 'reject_plaintext_session', NULL) AS 'tls_enforce_in';
 EOF
 
@@ -58,7 +58,7 @@ query = SELECT GROUP_CONCAT(transport SEPARATOR '') AS transport_maps
               WHERE alias_domain = '%d'
           )
         )
-        AND mailbox.tls_enforce_out = '1'
+        AND json_extract(attributes, '$.tls_enforce_out') LIKE '%%1%%'
         AND mailbox.active = '1'
     ), 'smtp_enforced_tls:', 'smtp:') AS 'transport'
     UNION ALL
@@ -83,7 +83,11 @@ query = SELECT CONCAT_WS(':', username, password) AS auth_data FROM relayhosts
   WHERE id IN (
     SELECT relayhost FROM domain
       WHERE CONCAT('@', domain) = '%s'
-  );
+      OR '%s' IN (
+        SELECT CONCAT('@', alias_domain) FROM alias_domain
+      )
+  )
+  AND username != '';
 EOF
 
 cat <<EOF > /opt/postfix/conf/sql/mysql_virtual_alias_domain_catchall_maps.cf
@@ -116,6 +120,38 @@ hosts = mysql
 dbname = ${DBNAME}
 query = SELECT goto FROM alias
   WHERE address='%s'
+    AND active='1';
+EOF
+
+cat <<EOF > /opt/postfix/conf/sql/mysql_recipient_bcc_maps.cf
+user = ${DBUSER}
+password = ${DBPASS}
+hosts = mysql
+dbname = ${DBNAME}
+query = SELECT bcc_dest FROM bcc_maps
+  WHERE local_dest='%s'
+    AND type='rcpt'
+    AND active='1';
+EOF
+
+cat <<EOF > /opt/postfix/conf/sql/mysql_sender_bcc_maps.cf
+user = ${DBUSER}
+password = ${DBPASS}
+hosts = mysql
+dbname = ${DBNAME}
+query = SELECT bcc_dest FROM bcc_maps
+  WHERE local_dest='%s'
+    AND type='sender'
+    AND active='1';
+EOF
+
+cat <<EOF > /opt/postfix/conf/sql/mysql_recipient_canonical_maps.cf
+user = ${DBUSER}
+password = ${DBPASS}
+hosts = mysql
+dbname = ${DBNAME}
+query = SELECT new_dest FROM recipient_maps
+  WHERE old_dest='%s'
     AND active='1';
 EOF
 
