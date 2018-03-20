@@ -83,8 +83,6 @@ services:
         mailcow-network:
           aliases:
             - clamd
-      volumes:
-        - /etc/localtime:/etc/localtime:ro
 
     rspamd-mailcow:
       image: mailcow/rspamd:1.17
