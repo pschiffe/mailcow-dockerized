@@ -15,7 +15,7 @@ while (($#)); do
   case "${1}" in
     --check|-c)
       echo "Checking remote code for updates..."
-      git fetch origin ${BRANCH}
+      git fetch origin #${BRANCH}
       if [[ -z $(git log HEAD --pretty=format:"%H" | grep $(git rev-parse origin/${BRANCH})) ]]; then
         echo "Updated code is available."
         exit 0
@@ -48,6 +48,7 @@ CONFIG_ARRAY=(
   "LOG_LINES"
   "SNAT_TO_SOURCE"
   "SYSCTL_IPV6_DISABLED"
+  "COMPOSE_PROJECT_NAME"
   "SQL_PORT"
 )
 
@@ -70,7 +71,7 @@ for option in ${CONFIG_ARRAY[@]}; do
   elif [[ ${option} == "COMPOSE_PROJECT_NAME" ]]; then
     if ! grep -q ${option} mailcow.conf; then
       echo "Adding new option \"${option}\" to mailcow.conf"
-      echo "COMPOSE_PROJECT_NAME=mailcow-dockerized" >> mailcow.conf
+      echo "COMPOSE_PROJECT_NAME=mailcowdockerized" >> mailcow.conf
     fi
   elif [[ ${option} == "DOVEADM_PORT" ]]; then
     if ! grep -q ${option} mailcow.conf; then
@@ -129,7 +130,7 @@ fi
 
 echo -e "\e[32mChecking for newer update script...\e[0m"
 SHA1_1=$(sha1sum update.sh)
-git fetch origin ${BRANCH}
+git fetch origin #${BRANCH}
 git checkout origin/${BRANCH} update.sh
 SHA1_2=$(sha1sum update.sh)
 if [[ ${SHA1_1} != ${SHA1_2} ]]; then
@@ -162,7 +163,7 @@ git update-index --assume-unchanged data/conf/rspamd/override.d/worker-controlle
 git add -u
 git commit -am "Before update on ${DATE}" > /dev/null
 echo -e "\e[32mFetching updated code from remote...\e[0m"
-git fetch origin ${BRANCH}
+git fetch origin #${BRANCH}
 echo -e "\e[32mMerging local with remote code (recursive, strategy: \"${MERGE_STRATEGY:-theirs}\", options: \"patience\"...\e[0m"
 git config merge.defaultToUpstream true
 git merge -X${MERGE_STRATEGY:-theirs} -Xpatience -m "After update on ${DATE}"
@@ -193,19 +194,41 @@ if [[ ! -z $(which pip) && $(pip list --local | grep -c docker-compose) == 1 ]];
   #prevent breaking a working docker-compose installed with pip
 elif [[ $(curl -sL -w "%{http_code}" https://www.servercow.de/docker-compose/latest.php -o /dev/null) == "200" ]]; then
   LATEST_COMPOSE=$(curl -#L https://www.servercow.de/docker-compose/latest.php)
-  curl -#L https://github.com/docker/compose/releases/download/${LATEST_COMPOSE}/docker-compose-$(uname -s)-$(uname -m) > $(which docker-compose)
-  chmod +x $(which docker-compose)
+  COMPOSE_VERSION=$(docker-compose version --short)
+  if [[ "$LATEST_COMPOSE" != "$COMPOSE_VERSION" ]]; then
+    if [[ -w $(which docker-compose) ]]; then
+      curl -#L https://github.com/docker/compose/releases/download/${LATEST_COMPOSE}/docker-compose-$(uname -s)-$(uname -m) > $(which docker-compose)
+      chmod +x $(which docker-compose)
+    else
+      echo -e "\e[33mWARNING: $(which docker-compose) is not writable, but new version $LATEST_COMPOSE is available (installed: $COMPOSE_VERSION)\e[0m"
+    fi
+  fi
 else
   echo -e "\e[33mCannot determine latest docker-compose version, skipping...\e[0m"
 fi
 
 echo -e "\e[32mFetching new images, if any...\e[0m"
 sleep 2
-docker-compose pull --parallel
+docker-compose pull
 
 # Fix missing SSL, does not overwrite existing files
 [[ ! -d data/assets/ssl ]] && mkdir -p data/assets/ssl
 cp -n data/assets/ssl-example/*.pem data/assets/ssl/
+
+echo -e "Fixing project name... "
+sed -i 's#COMPOSEPROJECT_NAME#COMPOSE_PROJECT_NAME#g' mailcow.conf
+sed -i '/COMPOSE_PROJECT_NAME=/s/-//g' mailcow.conf
+
+echo -e "Fixing PHP-FPM worker ports for Nginx sites..."
+sed -i 's#phpfpm:9000#phpfpm:9002#g' data/conf/nginx/*.conf
+if ls data/conf/nginx/*.custom 1> /dev/null 2>&1; then
+  sed -i 's#phpfpm:9000#phpfpm:9002#g' data/conf/nginx/*.custom
+fi
+
+if [[ -f "data/web/nextcloud/occ" ]]; then
+echo "Setting Nextcloud Redis timeout to 0.0..."
+docker exec -it -u www-data $(docker ps -f name=php-fpm-mailcow -q) bash -c "/web/nextcloud/occ config:system:set redis timeout --value=0.0 --type=integer"
+fi
 
 echo -e "\e[32mStarting mailcow...\e[0m"
 sleep 2
