@@ -1,4 +1,63 @@
 $(document).ready(function() {
+  FooTable.domainFilter = FooTable.Filtering.extend({
+    construct: function(instance){
+      this._super(instance);
+      var domain_list = [];
+      $.ajax({
+        dataType: 'json',
+        'async': false,
+        url: '/api/v1/get/domain/all',
+        jsonp: false,
+        error: function () {
+          domain_list.push('Cannot read domain list');
+        },
+        success: function (data) {
+          $.each(data, function (i, item) {
+            domain_list.push(item.domain_name);
+          });
+        }
+      });
+      this.domains = domain_list;
+      this.def = 'All Domains';
+      this.$domain = null;
+    },
+    $create: function(){
+      this._super();
+      var self = this,
+      $form_grp = $('<div/>', {'class': 'form-group'})
+        .append($('<label/>', {'class': 'sr-only', text: 'Domain'}))
+        .prependTo(self.$form);
+      self.$domain = $('<select/>', { 'class': 'form-control' })
+        .on('change', {self: self}, self._onDomainDropdownChanged)
+        .append($('<option/>', {text: self.def}))
+        .appendTo($form_grp);
+
+      $.each(self.domains, function(i, domain){
+        self.$domain.append($('<option/>').text(domain));
+      });
+    },
+    _onDomainDropdownChanged: function(e){
+      var self = e.data.self,
+        selected = $(this).val();
+      if (selected !== self.def){
+        self.addFilter('domain', selected, ['domain']);
+      } else {
+        self.removeFilter('domain');
+      }
+      self.filter();
+    },
+    draw: function(){
+      this._super();
+      var domain = this.find('domain');
+      if (domain instanceof FooTable.Filter){
+        this.$domain.val(domain.query.val());
+      } else {
+        this.$domain.val(this.def);
+      }
+      $(this.$domain).closest("select").selectpicker();
+    }
+  });
+
   // Auto-fill domain quota when adding new domain
   auto_fill_quota = function(domain) {
 		$.get("/api/v1/get/domain/" + domain, function(data){
@@ -130,6 +189,11 @@ jQuery(function($){
       return entityMap[s];
     });
   }
+  if (localStorage.getItem("current_page") === null) {
+    var current_page = {};
+  } else {
+    var current_page = JSON.parse(localStorage.getItem('current_page'));
+  }
   // http://stackoverflow.com/questions/46155/validate-email-address-in-javascript
   function validateEmail(email) {
     var re = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
@@ -152,6 +216,28 @@ jQuery(function($){
     var date = new Date(tm ? tm * 1000 : 0);
     return date.toLocaleString();
   }
+  $(".refresh_table").on('click', function(e) {
+    e.preventDefault();
+    var table_name = $(this).data('table');
+    $('#' + table_name).find("tr.footable-empty").remove();
+    draw_table = $(this).data('draw');
+    eval(draw_table + '()');
+  });
+  function table_mailbox_ready(ft, name) {
+    heading = ft.$el.parents('.tab-pane').find('.panel-heading')
+    var ft_paging = ft.use(FooTable.Paging)
+    $(heading).children('.table-lines').text(function(){
+      return ft_paging.totalRows;
+    })
+    if (current_page[name]) {
+      ft_paging.goto(parseInt(current_page[name]))
+    }
+  }
+  function table_mailbox_paging(ft, name) {
+    var ft_paging = ft.use(FooTable.Paging)
+    current_page[name] = ft_paging.current;
+    localStorage.setItem('current_page', JSON.stringify(current_page));
+  }
   function draw_domain_table() {
     ft_domain_table = FooTable.init('#domain_table', {
       "columns": [
@@ -168,7 +254,7 @@ jQuery(function($){
           return Number(res[0]);
         },
         },
-        {"name":"max_quota_for_mbox","title":lang.mailbox_quota,"breakpoints":"xs sm"},
+        {"name":"max_quota_for_mbox","title":lang.mailbox_quota,"breakpoints":"xs sm","style":{"width":"125px"}},
         {"name":"backupmx","filterable": false,"style":{"maxWidth":"120px","width":"120px"},"title":lang.backup_mx,"breakpoints":"xs sm"},
         {"name":"active","filterable": false,"style":{"maxWidth":"80px","width":"80px"},"title":lang.active},
         {"name":"action","filterable": false,"sortable": false,"style":{"text-align":"right","maxWidth":"240px","width":"240px"},"type":"html","title":lang.action,"breakpoints":"xs sm"}
@@ -207,12 +293,21 @@ jQuery(function($){
       },
       "filtering": {
         "enabled": true,
+        "delay": 100,
         "position": "left",
         "connectors": false,
         "placeholder": lang.filter_table
       },
       "sorting": {
         "enabled": true
+      },
+      "on": {
+        "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'domain_table');
+        },
+        "after.ft.paging": function(e, ft){
+          table_mailbox_paging(ft, 'domain_table');
+        }
       }
     });
   }
@@ -233,10 +328,13 @@ jQuery(function($){
         },
         },
         {"name":"spam_aliases","filterable": false,"title":lang.spam_aliases,"breakpoints":"xs sm md"},
-        {"name":"in_use","filterable": false,"type":"html","title":lang.in_use},
+        {"name":"in_use","filterable": false,"type":"html","title":lang.in_use,"sortValue": function(value){
+          return Number($(value).find(".progress-bar").attr('aria-valuenow'));
+        },
+        },
         {"name":"messages","filterable": false,"title":lang.msg_num,"breakpoints":"xs sm md"},
         {"name":"active","filterable": false,"title":lang.active},
-        {"name":"action","filterable": false,"sortable": false,"style":{"text-align":"right","min-width":"250px"},"type":"html","title":lang.action,"breakpoints":"xs sm md"}
+        {"name":"action","filterable": false,"sortable": false,"style":{"text-align":"right"},"type":"html","title":lang.action,"breakpoints":"xs sm md"}
       ],
       "empty": lang.empty,
       "rows": $.ajax({
@@ -278,12 +376,24 @@ jQuery(function($){
       },
       "filtering": {
         "enabled": true,
+        "delay": 100,
         "position": "left",
         "connectors": false,
         "placeholder": lang.filter_table
       },
+      "components": {
+        "filtering": FooTable.domainFilter
+      },
       "sorting": {
         "enabled": true
+      },
+      "on": {
+        "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'mailbox_table');
+        },
+        "after.ft.paging": function(e, ft){
+          table_mailbox_paging(ft, 'mailbox_table');
+        }
       }
     });
   }
@@ -331,12 +441,24 @@ jQuery(function($){
       },
       "filtering": {
         "enabled": true,
+        "delay": 100,
         "position": "left",
         "connectors": false,
         "placeholder": lang.filter_table
       },
+      "components": {
+        "filtering": FooTable.domainFilter
+      },
       "sorting": {
         "enabled": true
+      },
+      "on": {
+        "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'resource_table');
+        },
+        "after.ft.paging": function(e, ft){
+          table_mailbox_paging(ft, 'resource_table');
+        }
       }
     });
   }
@@ -384,12 +506,21 @@ jQuery(function($){
       },
       "filtering": {
         "enabled": true,
+        "delay": 100,
         "position": "left",
         "connectors": false,
         "placeholder": lang.filter_table
       },
       "sorting": {
         "enabled": true
+      },
+      "on": {
+        "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'bcc_table');
+        },
+        "after.ft.paging": function(e, ft){
+          table_mailbox_paging(ft, 'bcc_table');
+        }
       }
     });
   }
@@ -432,12 +563,21 @@ jQuery(function($){
       },
       "filtering": {
         "enabled": true,
+        "delay": 100,
         "position": "left",
         "connectors": false,
         "placeholder": lang.filter_table
       },
       "sorting": {
         "enabled": true
+      },
+      "on": {
+        "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'recipient_map_table');
+        },
+        "after.ft.paging": function(e, ft){
+          table_mailbox_paging(ft, 'recipient_map_table');
+        }
       }
     });
   }
@@ -466,7 +606,7 @@ jQuery(function($){
               '<a href="#" id="delete_selected" data-id="single-alias" data-api-url="delete/alias" data-item="' + encodeURIComponent(item.address) + '" class="btn btn-xs btn-danger"><span class="glyphicon glyphicon-trash"></span> ' + lang.remove + '</a>' +
               '</div>';
             item.chkbox = '<input type="checkbox" data-id="alias" name="multi_select" value="' + encodeURIComponent(item.address) + '" />';
-            item.goto = escapeHtml(item.goto);
+            item.goto = escapeHtml(item.goto.replace(/,/g, " "));
             if (item.is_catch_all == 1) {
               item.address = '<div class="label label-default">Catch-All</div> ' + escapeHtml(item.address);
             }
@@ -489,12 +629,24 @@ jQuery(function($){
       },
       "filtering": {
         "enabled": true,
+        "delay": 100,
         "position": "left",
         "connectors": false,
         "placeholder": lang.filter_table
       },
+      "components": {
+        "filtering": FooTable.domainFilter
+      },
       "sorting": {
         "enabled": true
+      },
+      "on": {
+        "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'alias_table');
+        },
+        "after.ft.paging": function(e, ft){
+          table_mailbox_paging(ft, 'alias_table');
+        }
       }
     });
   }
@@ -534,12 +686,21 @@ jQuery(function($){
       },
       "filtering": {
         "enabled": true,
+        "delay": 100,
         "position": "left",
         "connectors": false,
         "placeholder": lang.filter_table
       },
       "sorting": {
         "enabled": true
+      },
+      "on": {
+        "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'aliasdomain_table');
+        },
+        "after.ft.paging": function(e, ft){
+          table_mailbox_paging(ft, 'aliasdomain_table');
+        }
       }
     });
   }
@@ -600,12 +761,21 @@ jQuery(function($){
       },
       "filtering": {
         "enabled": true,
+        "delay": 100,
         "position": "left",
         "connectors": false,
         "placeholder": lang.filter_table
       },
       "sorting": {
         "enabled": true
+      },
+      "on": {
+        "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'sync_job_table');
+        },
+        "after.ft.paging": function(e, ft){
+          table_mailbox_paging(ft, 'sync_job_table');
+        }
       }
     });
   }
@@ -654,12 +824,21 @@ jQuery(function($){
       },
       "filtering": {
         "enabled": true,
+        "delay": 100,
         "position": "left",
         "connectors": false,
         "placeholder": lang.filter_table
       },
       "sorting": {
         "enabled": true
+      },
+      "on": {
+        "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'filter_table');
+        },
+        "after.ft.paging": function(e, ft){
+          table_mailbox_paging(ft, 'filter_table');
+        }
       }
     });
   };

@@ -23,7 +23,7 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
           <div class="form-group">
             <label class="control-label col-sm-2" for="domain"><?=$lang['add']['domain'];?>:</label>
             <div class="col-sm-10">
-              <select id="addSelectDomain" name="domain" id="domain" required>
+              <select data-live-search="true" id="addSelectDomain" name="domain" id="domain" required>
               <?php
               foreach (mailbox('get', 'domains') as $domain) {
                 echo "<option>".htmlspecialchars($domain)."</option>";
@@ -172,7 +172,7 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="domain"><?=$lang['add']['domain'];?>:</label>
 						<div class="col-sm-10">
-							<select name="domain" id="domain" title="<?=$lang['add']['select'];?>" required>
+							<select data-live-search="true" name="domain" id="domain" title="<?=$lang['add']['select'];?>" required>
 							<?php
               foreach (mailbox('get', 'domains') as $domain) {
 								echo "<option>".htmlspecialchars($domain)."</option>";
@@ -289,7 +289,7 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="target_domain"><?=$lang['add']['target_domain'];?></label>
 						<div class="col-sm-10">
-							<select name="target_domain" id="target_domain" title="<?=$lang['add']['select'];?>" required>
+							<select data-live-search="true" name="target_domain" id="target_domain" title="<?=$lang['add']['select'];?>" required>
 							<?php
               foreach (mailbox('get', 'domains') as $domain) {
 								echo "<option>".htmlspecialchars($domain)."</option>";
@@ -329,7 +329,7 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
           <div class="form-group">
             <label class="control-label col-sm-2" for="username"><?=$lang['add']['username'];?>:</label>
             <div class="col-sm-10">
-              <select id="addSelectUsername" name="username" id="username" required>
+              <select data-live-search="true" id="addSelectUsername" name="username" id="username" required>
               <?php
               $domains = mailbox('get', 'domains');
               if (!empty($domains)) {
@@ -477,7 +477,7 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
           <div class="form-group">
             <label class="control-label col-sm-2" for="username"><?=$lang['add']['username'];?>:</label>
             <div class="col-sm-10">
-              <select id="addSelectUsername" name="username" id="username" required>
+              <select data-live-search="true" id="addSelectUsername" name="username" id="username" required>
               <?php
               $domains = mailbox('get', 'domains');
               if (!empty($domains)) {
@@ -545,7 +545,7 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
           <div class="form-group">
             <label class="control-label col-sm-2" for="local_dest"><?=$lang['mailbox']['bcc_local_dest'];?>:</label>
             <div class="col-sm-10">
-              <select id="addSelectLocalDest" name="local_dest" id="local_dest" required>
+              <select data-live-search="true" id="addSelectLocalDest" name="local_dest" id="local_dest" required>
               <?php
               $domains = mailbox('get', 'domains');
               $alias_domains = mailbox('get', 'alias_domains');
@@ -614,17 +614,19 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
       <div class="modal-body">
 				<form class="form-horizontal" data-cached-form="true" role="form" data-id="add_recipient_map">
           <div class="form-group">
-            <label class="control-label col-sm-2" for="recipient_map_old"><?=$lang['mailbox']['recipient_map_old'];?>:</label>
-						<div class="col-sm-10">
-							<textarea autocorrect="off" spellcheck="false" autocapitalize="none" class="form-control" rows="2" id="recipient_map_old" name="recipient_map_old" required></textarea>
-						</div>
+            <label class="control-label col-sm-2" for="recipient_map_old"><?=$lang['mailbox']['recipient_map_old'];?></label>
+            <div class="col-sm-10">
+            <input type="text" class="form-control" name="recipient_map_old" id="recipient_map_old">
+            <small><?=$lang['mailbox']['recipient_map_old_info'];?></small>
+            </div>
           </div>
-					<div class="form-group">
-						<label class="control-label col-sm-2" for="recipient_map_new"><?=$lang['mailbox']['recipient_map_new'];?>:</label>
-						<div class="col-sm-10">
-							<textarea autocorrect="off" spellcheck="false" autocapitalize="none" class="form-control" rows="2" id="recipient_map_new" name="recipient_map_new" required></textarea>
-						</div>
-					</div>
+          <div class="form-group">
+            <label class="control-label col-sm-2" for="recipient_map_new"><?=$lang['mailbox']['recipient_map_new'];?></label>
+            <div class="col-sm-10">
+            <input type="text" class="form-control" name="recipient_map_new" id="recipient_map_new">
+            <small><?=$lang['mailbox']['recipient_map_new_info'];?></small>
+            </div>
+          </div>
 					<div class="form-group">
 						<div class="col-sm-offset-2 col-sm-10">
 							<div class="checkbox">

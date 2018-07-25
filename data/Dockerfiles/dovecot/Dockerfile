@@ -3,8 +3,8 @@ LABEL maintainer "Andre Peters <andre.peters@servercow.de>"
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV LC_ALL C
-ENV DOVECOT_VERSION 2.3.1
-ENV PIGEONHOLE_VERSION 0.5.1
+ENV DOVECOT_VERSION 2.3.2.1
+ENV PIGEONHOLE_VERSION 0.5.2
 
 RUN apt-get update && apt-get -y --no-install-recommends install \
   automake \
@@ -56,6 +56,7 @@ RUN apt-get update && apt-get -y --no-install-recommends install \
   liburi-perl \
   lzma-dev \
   make \
+  mysql-client \
   procps \
   supervisor \
   cron \
@@ -63,7 +64,6 @@ RUN apt-get update && apt-get -y --no-install-recommends install \
   syslog-ng-core \
   syslog-ng-mod-redis \
   && rm -rf /var/lib/apt/lists/*
-
 
 RUN curl https://www.dovecot.org/releases/2.3/dovecot-$DOVECOT_VERSION.tar.gz | tar xvz  \
   && cd dovecot-$DOVECOT_VERSION \
@@ -110,7 +110,7 @@ RUN groupadd -g 5000 vmail \
   && useradd -c "Dovecot login user" -d /dev/null -u 402 -g dovenull -s /bin/false dovenull
 
 RUN touch /etc/default/locale
-RUN apt-get purge -y build-essential automake autotools-dev \
+RUN apt-get purge -y build-essential automake autotools-dev default-libmysqlclient-dev libbz2-dev libcurl4-openssl-dev libexpat1-dev liblz-dev liblz4-dev liblzma-dev libpam-dev libssl-dev lzma-dev \
   && apt-get autoremove --purge -y
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

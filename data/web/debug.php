@@ -24,13 +24,6 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
         <li role="presentation"><a href="#tab-api-logs" aria-controls="tab-api-logs" role="tab" data-toggle="tab">API</a></li>
       </ul>
     </li>
-    <li class="dropdown"><a class="dropdown-toggle" data-toggle="dropdown" href="#">Rspamd
-      <span class="caret"></span></a>
-      <ul class="dropdown-menu">
-        <li role="presentation"><a href="#tab-rspamd-ui" aria-controls="tab-rspamd-ui" role="tab" data-toggle="tab">Rspamd UI</a></li>
-        <li role="presentation"><a href="#tab-rspamd-settings" aria-controls="tab-rspamd-settings" role="tab" data-toggle="tab">Rspamd settings map</a></li>
-      </ul>
-    </li>
   </ul>
 
 	<div class="row">
@@ -123,11 +116,11 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
 
         <div role="tabpanel" class="tab-pane" id="tab-postfix-logs">
           <div class="panel panel-default">
-            <div class="panel-heading">Postfix <span class="badge badge-info log-lines"></span>
+            <div class="panel-heading">Postfix <span class="badge badge-info table-lines"></span>
               <div class="btn-group pull-right">
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="general_syslog" data-table="postfix_log" data-log-url="postfix" data-nrows="100">+ 100</button>
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="general_syslog" data-table="postfix_log" data-log-url="postfix" data-nrows="1000">+ 1000</button>
-                <button class="btn btn-xs btn-default" id="refresh_postfix_log"><?=$lang['admin']['refresh'];?></button>
+                <button class="btn btn-xs btn-default refresh_table" data-draw="draw_postfix_logs" data-table="postfix_log"><?=$lang['admin']['refresh'];?></button>
               </div>
             </div>
             <div class="panel-body">
@@ -140,11 +133,11 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
 
         <div role="tabpanel" class="tab-pane" id="tab-dovecot-logs">
           <div class="panel panel-default">
-            <div class="panel-heading">Dovecot <span class="badge badge-info log-lines"></span>
+            <div class="panel-heading">Dovecot <span class="badge badge-info table-lines"></span>
               <div class="btn-group pull-right">
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="general_syslog" data-table="dovecot_log" data-log-url="dovecot" data-nrows="100">+ 100</button>
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="general_syslog" data-table="dovecot_log" data-log-url="dovecot" data-nrows="1000">+ 1000</button>
-                <button class="btn btn-xs btn-default" id="refresh_dovecot_log"><?=$lang['admin']['refresh'];?></button>
+                <button class="btn btn-xs btn-default refresh_table" data-draw="draw_dovecot_logs" data-table="dovecot_log"><?=$lang['admin']['refresh'];?></button>
               </div>
             </div>
             <div class="panel-body">
@@ -157,11 +150,11 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
 
         <div role="tabpanel" class="tab-pane" id="tab-sogo-logs">
           <div class="panel panel-default">
-            <div class="panel-heading">SOGo <span class="badge badge-info log-lines"></span>
+            <div class="panel-heading">SOGo <span class="badge badge-info table-lines"></span>
               <div class="btn-group pull-right">
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="general_syslog" data-table="sogo_log" data-log-url="sogo" data-nrows="100">+ 100</button>
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="general_syslog" data-table="sogo_log" data-log-url="sogo" data-nrows="1000">+ 1000</button>
-                <button class="btn btn-xs btn-default" id="refresh_sogo_log"><?=$lang['admin']['refresh'];?></button>
+                <button class="btn btn-xs btn-default refresh_table" data-draw="draw_sogo_logs" data-table="sogo_log"><?=$lang['admin']['refresh'];?></button>
               </div>
             </div>
             <div class="panel-body">
@@ -174,11 +167,11 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
 
         <div role="tabpanel" class="tab-pane" id="tab-netfilter-logs">
           <div class="panel panel-default">
-            <div class="panel-heading">Netfilter <span class="badge badge-info log-lines"></span>
+            <div class="panel-heading">Netfilter <span class="badge badge-info table-lines"></span>
               <div class="btn-group pull-right">
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="general_syslog" data-table="netfilter_log" data-log-url="netfilter" data-nrows="100">+ 100</button>
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="general_syslog" data-table="netfilter_log" data-log-url="netfilter" data-nrows="1000">+ 1000</button>
-                <button class="btn btn-xs btn-default" id="refresh_netfilter_log"><?=$lang['admin']['refresh'];?></button>
+                <button class="btn btn-xs btn-default refresh_table" data-draw="draw_netfilter_logs" data-table="netfilter_log"><?=$lang['admin']['refresh'];?></button>
               </div>
             </div>
             <div class="panel-body">
@@ -191,15 +184,15 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
 
         <div role="tabpanel" class="tab-pane" id="tab-rspamd-history">
           <div class="panel panel-default">
-            <div class="panel-heading">Rspamd history <span class="badge badge-info log-lines"></span>
+            <div class="panel-heading">Rspamd history <span class="badge badge-info table-lines"></span>
               <div class="btn-group pull-right">
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="rspamd_history" data-table="rspamd_history" data-log-url="rspamd-history" data-nrows="100">+ 100</button>
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="rspamd_history" data-table="rspamd_history" data-log-url="rspamd-history" data-nrows="1000">+ 1000</button>
-                <button class="btn btn-xs btn-default" id="refresh_rspamd_history"><?=$lang['admin']['refresh'];?></button>
+                <button class="btn btn-xs btn-default refresh_table" data-draw="draw_rspamd_history" data-table="rspamd_history"><?=$lang['admin']['refresh'];?></button>
               </div>
             </div>
             <div class="panel-body">
-              <div id="rspamd_donut" style="height:400px;width:100%; "></div>
+              <div id="rspamd_donut" style="height: 300px;"></div>
               <div class="table-responsive">
                 <table class="table table-striped table-condensed log-table" id="rspamd_history"></table>
               </div>
@@ -209,11 +202,11 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
 
         <div role="tabpanel" class="tab-pane" id="tab-autodiscover-logs">
           <div class="panel panel-default">
-            <div class="panel-heading">Autodiscover <span class="badge badge-info log-lines"></span>
+            <div class="panel-heading">Autodiscover <span class="badge badge-info table-lines"></span>
               <div class="btn-group pull-right">
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="autodiscover_log" data-table="autodiscover_log" data-log-url="autodiscover" data-nrows="100">+ 100</button>
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="autodiscover_log" data-table="autodiscover_log" data-log-url="autodiscover" data-nrows="1000">+ 1000</button>
-                <button class="btn btn-xs btn-default" id="refresh_autodiscover_log"><?=$lang['admin']['refresh'];?></button>
+                <button class="btn btn-xs btn-default refresh_table" data-draw="draw_autodiscover_logs" data-table="autodiscover_log"><?=$lang['admin']['refresh'];?></button>
               </div>
             </div>
             <div class="panel-body">
@@ -226,11 +219,11 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
 
         <div role="tabpanel" class="tab-pane" id="tab-watchdog-logs">
           <div class="panel panel-default">
-            <div class="panel-heading">Watchdog <span class="badge badge-info log-lines"></span>
+            <div class="panel-heading">Watchdog <span class="badge badge-info table-lines"></span>
               <div class="btn-group pull-right">
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="watchdog" data-table="watchdog_log" data-log-url="watchdog" data-nrows="100">+ 100</button>
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="watchdog" data-table="watchdog_log" data-log-url="watchdog" data-nrows="1000">+ 1000</button>
-                <button class="btn btn-xs btn-default" id="refresh_watchdog_log"><?=$lang['admin']['refresh'];?></button>
+                <button class="btn btn-xs btn-default refresh_table" data-draw="draw_watchdog_logs" data-table="watchdog_log"><?=$lang['admin']['refresh'];?></button>
               </div>
             </div>
             <div class="panel-body">
@@ -243,11 +236,11 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
 
         <div role="tabpanel" class="tab-pane" id="tab-acme-logs">
           <div class="panel panel-default">
-            <div class="panel-heading">ACME <span class="badge badge-info log-lines"></span>
+            <div class="panel-heading">ACME <span class="badge badge-info table-lines"></span>
               <div class="btn-group pull-right">
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="general_syslog" data-table="acme_log" data-log-url="acme" data-nrows="100">+ 100</button>
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="general_syslog" data-table="acme_log" data-log-url="acme" data-nrows="1000">+ 1000</button>
-                <button class="btn btn-xs btn-default" id="refresh_acme_log"><?=$lang['admin']['refresh'];?></button>
+                <button class="btn btn-xs btn-default refresh_table" data-draw="draw_acme_logs" data-table="acme_log"><?=$lang['admin']['refresh'];?></button>
               </div>
             </div>
             <div class="panel-body">
@@ -260,71 +253,17 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
 
         <div role="tabpanel" class="tab-pane" id="tab-api-logs">
           <div class="panel panel-default">
-            <div class="panel-heading">API <span class="badge badge-info log-lines"></span>
+            <div class="panel-heading">API <span class="badge badge-info table-lines"></span>
               <div class="btn-group pull-right">
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="apilog" data-table="api_log" data-log-url="api" data-nrows="100">+ 100</button>
                 <button class="btn btn-xs btn-default add_log_lines" data-post-process="apilog" data-table="api_log" data-log-url="api" data-nrows="1000">+ 1000</button>
-                <button class="btn btn-xs btn-default" id="refresh_api_log"><?=$lang['admin']['refresh'];?></button>
+                <button class="btn btn-xs btn-default refresh_table" data-draw="draw_api_logs" data-table="api_log"><?=$lang['admin']['refresh'];?></button>
               </div>
             </div>
             <div class="panel-body">
               <div class="table-responsive">
                 <table class="table table-striped table-condensed" id="api_log"></table>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <div role="tabpanel" class="tab-pane" id="tab-rspamd-ui">
-          <div class="panel panel-default">
-            <div class="panel-heading">
-              <h3 class="panel-title">Rspamd UI</h3>
-            </div>
-            <div class="panel-body">
-              <div class="row">
-                <div class="col-sm-9">
-                <form class="form-horizontal" autocapitalize="none" data-id="admin" autocorrect="off" role="form" method="post">
-                  <div class="form-group">
-                    <div class="col-sm-offset-3 col-sm-9">
-                      <label>
-                        <a href="/rspamd/" target="_blank"><span class="glyphicon glyphicon-new-window" aria-hidden="true"></span> Rspamd UI</a>
-                      </label>
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <label class="control-label col-sm-3" for="rspamd_ui_pass"><?=$lang['admin']['password'];?>:</label>
-                    <div class="col-sm-9">
-                    <input type="password" class="form-control" name="rspamd_ui_pass" id="rspamd_ui_pass" required>
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <label class="control-label col-sm-3" for="rspamd_ui_pass2"><?=$lang['admin']['password_repeat'];?>:</label>
-                    <div class="col-sm-9">
-                    <input type="password" class="form-control" name="rspamd_ui_pass2" id="rspamd_ui_pass2" required>
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <div class="col-sm-offset-3 col-sm-9">
-                      <button type="submit" class="btn btn-default" id="rspamd_ui" name="rspamd_ui" href="#"><span class="glyphicon glyphicon-check"></span> <?=$lang['admin']['save'];?></button>
-                    </div>
-                  </div>
-                </form>
-                </div>
-                <div class="col-sm-3">
-                  <img class="img-responsive" src="/img/rspamd_logo.png" alt="Rspamd UI" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div role="tabpanel" class="tab-pane" id="tab-rspamd-settings">
-          <div class="panel panel-default">
-            <div class="panel-heading">
-              <h3 class="panel-title">Rspamd settings map</h3>
-            </div>
-            <div class="panel-body">
-            <textarea autocorrect="off" spellcheck="false" autocapitalize="none" class="form-control" rows="20" id="settings_map" name="settings_map" readonly><?=file_get_contents('http://nginx:8081/settings.php');?></textarea>
             </div>
           </div>
         </div>

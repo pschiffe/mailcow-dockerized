@@ -5,9 +5,11 @@
 
 $lang['footer']['loading'] = "Please wait...";
 $lang['header']['restart_sogo'] = 'Restart SOGo';
+$lang['header']['restart_netfilter'] = 'Restart netfilter';
 $lang['footer']['restart_container'] = 'Restart container';
 $lang['footer']['restart_now'] = 'Restart now';
-$lang['footer']['restart_container_info'] = '<b>Important:</b> A graceful restart may take a while to complete, please wait for it to finish.';
+$lang['footer']['restarting_container'] = 'Restarting container, this may take a while...';
+$lang['footer']['restart_container_info'] = '<b>Important:</b> A graceful restart may take a while to complete, please wait for it to finish.<br>This website will reload if the process succeeded.';
 
 $lang['footer']['confirm_delete'] = 'Confirm deletion';
 $lang['footer']['delete_these_items'] = 'Please confirm your changes to the following object id:';
@@ -103,7 +105,7 @@ $lang['user']['new_password_description'] = 'Requirement: 6 characters long, let
 $lang['user']['spam_aliases'] = 'Temporary email aliases';
 $lang['user']['alias'] = 'Alias';
 $lang['user']['shared_aliases'] = 'Shared alias addresses';
-$lang['user']['shared_aliases_desc'] = 'A shared alias address is not affected by any user specific settings. A custom spam filter setting can be archived by a domain-wide policy set by an administrator..';
+$lang['user']['shared_aliases_desc'] = 'Shared aliases are not affected by user specific settings such as the spam filter or encryption policy. Corresponding spam filters can only be made by an administrator as a domain-wide policy..';
 $lang['user']['direct_aliases'] = 'Direct alias addresses';
 $lang['user']['direct_aliases_desc'] = 'Direct alias addresses are affected by spam filter and TLS policy settings.';
 $lang['user']['is_catch_all'] = 'Catch-all for domain/s';
@@ -125,7 +127,7 @@ $lang['user']['weeks'] = 'Weeks';
 $lang['user']['spamfilter'] = 'Spam filter';
 $lang['admin']['spamfilter'] = 'Spam filter';
 $lang['user']['spamfilter_wl'] = 'Whitelist';
-$lang['user']['spamfilter_wl_desc'] = 'Whitelisted email addresses to <b>never</b> classify as spam. Wildcards may be used. A filter is only applied to direct aliases (aliases with a single target mailbox) exclulding catch-all aliases and a mailbox itself.';
+$lang['user']['spamfilter_wl_desc'] = 'Whitelisted email addresses to <b>never</b> classify as spam. Wildcards may be used. A filter is only applied to direct aliases (aliases with a single target mailbox) excluding catch-all aliases and a mailbox itself.';
 $lang['user']['spamfilter_bl'] = 'Blacklist';
 $lang['user']['spamfilter_bl_desc'] = 'Blacklisted email addresses to <b>always</b> classify as spam and reject. Wildcards may be used. A filter is only applied to direct aliases (aliases with a single target mailbox) excluding catch-all aliases and a mailbox itself.';
 $lang['user']['spamfilter_behavior'] = 'Rating';
@@ -376,6 +378,9 @@ $lang['tfa']['scan_qr_code'] = "Please scan the following code with your authent
 $lang['tfa']['enter_qr_code'] = "Your TOTP code if your device cannot scan QR codes";
 $lang['tfa']['confirm_totp_token'] = "Please confirm your changes by entering the generated token";
 
+$lang['admin']['rspamd-com_settings'] = '<a href="https://rspamd.com/doc/configuration/settings.html#settings-structure" target="_blank">Rspamd docs</a>
+  - A setting name will be auto-generated, please see the example presets below.';
+
 $lang['admin']['no_new_rows'] = 'No further rows available';
 $lang['admin']['additional_rows'] = ' additional rows were added'; // parses to 'n additional rows were added'
 $lang['admin']['private_key'] = 'Private key';
@@ -410,6 +415,15 @@ $lang['admin']['active'] = 'Active';
 $lang['admin']['inactive'] = 'Inactive';
 $lang['admin']['action'] = 'Action';
 $lang['admin']['add_domain_admin'] = 'Add domain administrator';
+$lang['admin']['add_settings_rule'] = 'Add settings rule';
+$lang['admin']['rsetting_desc'] = 'Short description';
+$lang['admin']['rsetting_content'] = 'Rule content';
+$lang['admin']['rsetting_none'] = 'No rule available';
+$lang['admin']['rsetting_no_selection'] = 'Please select a rule';
+$lang['admin']['rsettings_preset_1'] = 'Disable all but DKIM and ratelimit for authenticated users';
+$lang['admin']['rsettings_preset_2'] = 'Postmasters want spam';
+$lang['admin']['rsettings_insert_preset'] = 'Insert example preset "%s"';
+$lang['admin']['rsetting_add_rule'] = 'Add rule';
 $lang['admin']['admin_domains'] = 'Domain assignments';
 $lang['admin']['domain_admins'] = 'Domain administrators';
 $lang['admin']['username'] = 'Username';
@@ -459,10 +473,14 @@ $lang['admin']['api_allow_from'] = "Allow API access from these IPs";
 $lang['admin']['api_key'] = "API key";
 $lang['admin']['activate_api'] = "Activate API";
 $lang['admin']['regen_api_key'] = "Regenerate API key";
+$lang['admin']['ban_list_info'] = "See a list of banned IPs below: <b>network (remaining ban time) - [actions]</b>.<br />IPs queued to be unbanned, will be removed from the active ban list within a few seconds.<br />Red labels indicate active permanent bans by blacklisting.";
+$lang['admin']['unban_pending'] = "unban pending";
+$lang['admin']['queue_unban'] = "queue unban";
+$lang['admin']['no_active_bans'] = "No active bans";
 
 $lang['admin']['quarantine'] = "Quarantine";
-$lang['admin']['quarantine_retention_size'] = "Retentions per mailbox:";
-$lang['admin']['quarantine_max_size'] = "Maximum size in MiB (larger elements are discarded):";
+$lang['admin']['quarantine_retention_size'] = "Retentions per mailbox<br />0 indicates <b>inactive</b>!";
+$lang['admin']['quarantine_max_size'] = "Maximum size in MiB (larger elements are discarded)<br />0 does <b>not</b> indicate unlimited!";
 $lang['admin']['quarantine_exclude_domains'] = "Exclude domains and alias-domains:";
 
 $lang['admin']['ui_texts'] = "UI labels and texts";
@@ -543,11 +561,18 @@ $lang['mailbox']['bcc_info'] = "BCC maps are used to silently forward copies of 
   The local destination will not be informed about a failed delivery.";
 $lang['mailbox']['address_rewriting'] = 'Address rewriting';
 $lang['mailbox']['recipient_maps'] = 'Recipient maps';
+$lang['mailbox']['recipient_map'] = 'Recipient map';
 $lang['mailbox']['recipient_map_info'] = 'Recipient maps are used to replace the destination address on a message before it is delivered.';
+$lang['mailbox']['recipient_map_old_info'] = 'A recipient maps original destination must be valid email addresses or a domain name.';
+$lang['mailbox']['recipient_map_new_info'] = 'Recipient map destination must be a valid email address.';
 $lang['mailbox']['recipient_map_old'] = 'Original recipient';
 $lang['mailbox']['recipient_map_new'] = 'New recipient';
+$lang['danger']['invalid_recipient_map_new'] = 'Invalid new recipient specified: %s';
+$lang['danger']['invalid_recipient_map_old'] = 'Invalid original recipient specified: %s';
+$lang['danger']['recipient_map_entry_exists'] = 'A Recipient map entry for %s exists';
+$lang['success']['recipient_map_entry_saved'] = 'Recipient map entry for %s has been saved';
+$lang['success']['recipient_map_entry_deleted'] = 'Recipient map entry for %s has been deleted';
 $lang['mailbox']['add_recipient_map_entry'] = 'Add recipient map';
-$lang['mailbox']['add_sender_map_entry'] = 'Add sender map';
 
 $lang['oauth2']['scope_ask_permission'] = 'An application asked for the following permissions';
 $lang['oauth2']['profile'] = 'Profile';

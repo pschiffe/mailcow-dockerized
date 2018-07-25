@@ -9,8 +9,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/modals/footer.php';
 <script src="/js/bootstrap-filestyle.min.js"></script>
 <script src="/js/notifications.min.js"></script>
 <script src="/js/formcache.min.js"></script>
-<script src="/js/jquery.jqplot.min.js"></script>
-<script src="/js/jqplot.donutRenderer.js"></script>
+<script src="/js/google.charts.loader.js"></script>
 <script src="/js/numberedtextarea.min.js"></script>
 <script src="/js/u2f-api.js"></script>
 <script src="/js/api.js"></script>
@@ -152,6 +151,9 @@ $(document).ready(function() {
     'use strict';
     if ($('a[data-toggle="tab"]').length) {
       $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+        if ($(this).data('dont-remember') == 1) {
+          return true;
+        }
         var id = $(this).parents('[role="tablist"]').attr('id');
         var key = 'lastTag';
         if (id) {
@@ -200,27 +202,29 @@ $(document).ready(function() {
     $('#triggerRestartContainer').click(function(){
       $(this).prop("disabled",true);
       $(this).html('<span class="glyphicon glyphicon-refresh glyphicon-spin"></span> ');
-      $('#statusTriggerRestartContainer').text('Restarting container, this may take a while... ');
-      $('#statusTriggerRestartContainer2').text('Reloading webpage... ');
+      $('#statusTriggerRestartContainer').html('<?= $lang['footer']['restarting_container']; ?>');
       $.ajax({
         method: 'get',
         url: '/inc/ajax/container_ctrl.php',
-        timeout: 10000,
+        timeout: <?= $DOCKER_TIMEOUT * 1000; ?>,
         data: {
-          'service': container,
-          'action': 'restart'
-        },
-        error: function() {
-          window.location = window.location.href.split("#")[0];
-        },
-        success: function(data) {
-          $('#statusTriggerRestartContainer').append(data);
-          $('#triggerRestartContainer').html('<span class="glyphicon glyphicon-ok"></span> ');
-          $('#statusTriggerRestartContainer2').append(data);
-          $('#triggerRestartContainer').html('<span class="glyphicon glyphicon-ok"></span> ');
-          window.location = window.location.href.split("#")[0];
+        'service': container,
+        'action': 'restart'
         }
-      });
+      })
+      .always( function (data, status) {
+        $('#statusTriggerRestartContainer').append(data);
+        var htmlResponse = $.parseHTML(data)
+        if ($(htmlResponse).find('span').hasClass('text-success')) {
+          $('#triggerRestartContainer').html('<span class="glyphicon glyphicon-ok"></span> ');
+          setTimeout(function(){
+            $('#RestartContainer').modal('toggle'); 
+            window.location = window.location.href.split("#")[0];
+          }, 1200);
+        } else {
+          $('#triggerRestartContainer').html('<span class="glyphicon glyphicon-remove"></span> ');
+        }
+      })
     });
   })
 

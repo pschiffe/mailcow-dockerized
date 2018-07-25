@@ -28,9 +28,17 @@ while (($#)); do
       MERGE_STRATEGY=ours
     ;;
   esac
+  shift
 done
 
 [[ ! -f mailcow.conf ]] && { echo "mailcow.conf is missing"; exit 1;}
+source mailcow.conf
+DOTS=${MAILCOW_HOSTNAME//[^.]};
+if [ ${#DOTS} -lt 2 ]; then
+  echo "MAILCOW_HOSTNAME (${MAILCOW_HOSTNAME}) is not a FQDN!"
+  echo "Please change it to a FQDN and run docker-compose down followed by docker-compose up -d"
+  exit 1
+fi
 
 if grep --help 2>&1 | head -n 1 | grep -q -i "busybox"; then echo "BusybBox grep detected, please install gnu grep, \"apk add --no-cache --upgrade grep\""; exit 1; fi
 if cp --help 2>&1 | head -n 1 | grep -q -i "busybox"; then echo "BusybBox cp detected, please install coreutils, \"apk add --no-cache --upgrade coreutils\""; exit 1; fi
@@ -47,9 +55,12 @@ CONFIG_ARRAY=(
   "IPV6_NETWORK"
   "LOG_LINES"
   "SNAT_TO_SOURCE"
+  "SNAT6_TO_SOURCE"
   "SYSCTL_IPV6_DISABLED"
   "COMPOSE_PROJECT_NAME"
   "SQL_PORT"
+  "API_KEY"
+  "API_ALLOW_FROM"
 )
 
 sed -i '$a\' mailcow.conf
@@ -107,11 +118,29 @@ for option in ${CONFIG_ARRAY[@]}; do
       echo '# Bind SQL to 127.0.0.1 on port 13306' >> mailcow.conf
       echo "SQL_PORT=127.0.0.1:13306" >> mailcow.conf
     fi
+  elif [[ ${option} == "API_KEY" ]]; then
+    if ! grep -q ${option} mailcow.conf; then
+      echo "Adding new option \"${option}\" to mailcow.conf"
+      echo '# Create or override API key for web UI' >> mailcow.conf
+      echo "#API_KEY=" >> mailcow.conf
+    fi
+  elif [[ ${option} == "API_ALLOW_FROM" ]]; then
+    if ! grep -q ${option} mailcow.conf; then
+      echo "Adding new option \"${option}\" to mailcow.conf"
+      echo '# Must be set for API_KEY to be active' >> mailcow.conf
+      echo "#API_ALLOW_FROM=" >> mailcow.conf
+    fi
   elif [[ ${option} == "SNAT_TO_SOURCE" ]]; then
     if ! grep -q ${option} mailcow.conf; then
       echo "Adding new option \"${option}\" to mailcow.conf"
-      echo '# Use this IP for outgoing connections (SNAT)' >> mailcow.conf
+      echo '# Use this IPv4 for outgoing connections (SNAT)' >> mailcow.conf
       echo "#SNAT_TO_SOURCE=" >> mailcow.conf
+    fi
+  elif [[ ${option} == "SNAT6_TO_SOURCE" ]]; then
+    if ! grep -q ${option} mailcow.conf; then
+      echo "Adding new option \"${option}\" to mailcow.conf"
+      echo '# Use this IPv6 for outgoing connections (SNAT)' >> mailcow.conf
+      echo "#SNAT6_TO_SOURCE=" >> mailcow.conf
     fi
   elif ! grep -q ${option} mailcow.conf; then
     echo "Adding new option \"${option}\" to mailcow.conf"

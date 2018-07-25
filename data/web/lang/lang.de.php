@@ -5,9 +5,11 @@
 
 $lang['footer']['loading'] = 'Einen Moment bitte...';
 $lang['header']['restart_sogo'] = 'SOGo neustarten';
+$lang['header']['restart_netfilter'] = 'Netfilter neustarten';
 $lang['footer']['restart_container'] = 'Container neustarten';
 $lang['footer']['restart_now'] = 'Jetzt neustarten';
-$lang['footer']['restart_container_info'] = '<b>Wichtig:</b> Ein korrekter Neustart eines Containers kann eine Weile in Anspruch nehmen, bitte warten Sie, bis der Prozess vollständig beendet wurde.';
+$lang['footer']['restarting_container'] = 'Container wird neugestartet, bitte warten...';
+$lang['footer']['restart_container_info'] = '<b>Wichtig:</b> Der Neustart eines Containers kann eine Weile in Anspruch nehmen, bitte warten Sie, bis der Prozess vollständig beendet wurde.<br>Die Website wird neugeladen, wenn der Vorgang erfolgreich ist.';
 
 $lang['footer']['confirm_delete'] = 'Löschen bestätigen';
 $lang['footer']['delete_these_items'] = 'Sind Sie sicher, dass die Änderungen an Elementen mit folgender ID durchgeführt werden sollen?';
@@ -373,6 +375,9 @@ $lang['tfa']['scan_qr_code'] = "Bitte scannen Sie jetzt den angezeigten QR-Code:
 $lang['tfa']['enter_qr_code'] = "Falls Sie den angezeigten QR-Code nicht scannen können, verwenden Sie bitte nachstehenden Sicherheitsschlüssel";
 $lang['tfa']['confirm_totp_token'] = "Bitte bestätigen Sie die Änderung durch Eingabe eines generierten Tokens";
 
+$lang['admin']['rspamd-com_settings'] = '<a href="https://rspamd.com/doc/configuration/settings.html#settings-structure" target="_blank">Rspamd docs</a>
+  - Ein Name wird automatisch generiert. Beispielinhalte zur Einsicht stehen nachstehend bereit.';
+  
 $lang['admin']['no_new_rows'] = 'Keine weiteren Zeilen vorhanden';
 $lang['admin']['additional_rows'] = ' zusätzliche Zeilen geladen'; // parses to 'n additional rows were added'
 $lang['admin']['private_key'] = 'Private Key';
@@ -404,6 +409,15 @@ $lang['admin']['active'] = 'Aktiv';
 $lang['admin']['inactive'] = 'Inaktiv';
 $lang['admin']['action'] = 'Aktion';
 $lang['admin']['add_domain_admin'] = 'Domain-Administrator hinzufügen';
+$lang['admin']['add_settings_rule'] = 'Rspamd Setting hinzufügen';
+$lang['admin']['rsetting_desc'] = 'Kurze Beschreibung';
+$lang['admin']['rsetting_content'] = 'Regelinhalt';
+$lang['admin']['rsetting_none'] = 'Keine Regel hinterlegt';
+$lang['admin']['rsetting_no_selection'] = 'Bitte eine Regel auswählen';
+$lang['admin']['rsettings_preset_1'] = 'Alles außer DKIM and Ratelimits für authentifizierte Benutzer deaktivieren"';
+$lang['admin']['rsettings_preset_2'] = 'Spam an Postmaster-Addressen nicht blockieren';
+$lang['admin']['rsettings_insert_preset'] = 'Beispiel "%s" laden';
+$lang['admin']['rsetting_add_rule'] = 'Regel hinzufügen';
 $lang['admin']['admin_domains'] = 'Domain-Zuweisungen';
 $lang['admin']['domain_admins'] = 'Domain-Administratoren';
 $lang['admin']['username'] = 'Benutzername';
@@ -438,10 +452,14 @@ $lang['admin']['api_allow_from'] = "IP-Adressen für Zugriff";
 $lang['admin']['api_key'] = "API-Key";
 $lang['admin']['activate_api'] = "API aktivieren";
 $lang['admin']['regen_api_key'] = "API-Key regenerieren";
+$lang['admin']['ban_list_info'] = "Übersicht ausgesperrter Netzwerke: <b>Netzwerk (verbleibende Banzeit) - [Aktionen]</b>.<br />IPs, die zum Unban eingereiht werden, verlassen die Liste aktiver Bans nach wenigen Sekunden.<br />Rote Labels sind Indikatoren für aktive Blacklisteinträge.";
+$lang['admin']['unban_pending'] = "ausstehend";
+$lang['admin']['queue_unban'] = "Unban einreihen";
+$lang['admin']['no_active_bans'] = "Keine aktiven Bans";
 
 $lang['admin']['quarantine'] = "Quarantäne";
-$lang['admin']['quarantine_retention_size'] = "Rückhaltungen pro Mailbox:";
-$lang['admin']['quarantine_max_size'] = "Maximale Größe in MiB (größere Elemente werden verworfen):";
+$lang['admin']['quarantine_retention_size'] = "Rückhaltungen pro Mailbox<br />0 bedeutet <b>inaktiv</b>!";
+$lang['admin']['quarantine_max_size'] = "Maximale Größe in MiB (größere Elemente werden verworfen)<br />0 bedeutet <b>nicht</b> unlimitert!";
 $lang['admin']['quarantine_exclude_domains'] = "Domains und Alias-Domains ausschließen:";
 
 $lang['success']['forwarding_host_removed'] = "Weiterleitungs-Host %s wurde entfernt";
@@ -536,9 +554,18 @@ $lang['mailbox']['add_bcc_entry'] = "BCC-Eintrag hinzufügen";
 $lang['mailbox']['bcc_info'] = "Eine empfängerabhängige Map wird verwendet, wenn die BCC-Map Eintragung auf den Eingang einer E-Mail auf das lokale Ziel reagieren soll. Senderabhängige Maps verfahren nach dem gleichen Prinzip.<br/>
   Das lokale Ziel wird bei Fehlzustellungen an ein BCC-Ziel nicht informiert.";
 $lang['mailbox']['address_rewriting'] = 'Adressumschreibung';
+
 $lang['mailbox']['recipient_maps'] = 'Empfängerumschreibungen';
+$lang['mailbox']['recipient_map'] = 'Empfängerumschreibung';
 $lang['mailbox']['recipient_map_info'] = 'Empfängerumschreibung ersetzen den Empfänger einer E-Mail vor dem Versand.';
+$lang['mailbox']['recipient_map_old_info'] = 'Der originale Empfänger muss eine E-Mail-Adresse oder ein Domainname sein.';
+$lang['mailbox']['recipient_map_new_info'] = 'Der neue Empfänger muss eine E-Mail-Adresse sein.';
 $lang['mailbox']['recipient_map_old'] = 'Original Empfänger';
 $lang['mailbox']['recipient_map_new'] = 'Neuer Empfänger';
 $lang['mailbox']['add_recipient_map_entry'] = 'Empfängerumschreibung hinzufügen';
-$lang['mailbox']['add_sender_map_entry'] = 'Senderumschreibung hinzufügen';
+$lang['danger']['invalid_recipient_map_new'] = 'Neuer Empfänger %s ist ungültig';
+$lang['danger']['invalid_recipient_map_old'] = 'Originaler Empfänger %s ist ungültig';
+$lang['danger']['recipient_map_entry_exists'] = 'Eine Empfängerumschreibung für %s existiert bereits';
+$lang['success']['recipient_map_entry_saved'] = 'Empfängerumschreibung für Objekt %s wurde gespeichert';
+$lang['success']['recipient_map_entry_deleted'] = 'Empfängerumschreibung für Objekt %s wurde gelöscht';
+
