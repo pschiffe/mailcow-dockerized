@@ -11,8 +11,6 @@ services:
         - ./data/conf/unbound/unbound.conf:/etc/unbound/unbound.conf:ro,z
         - /etc/localtime:/etc/localtime:ro
       restart: always
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
       networks:
         mailcow-network:
           ipv4_address: ${IPV4_NETWORK:-172.22.1}.254
@@ -38,8 +36,6 @@ services:
         - ${IPV4_NETWORK:-172.22.1}.254
       ports:
         - "${SQL_PORT:-127.0.0.1:13306}:3306"
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
       networks:
         mailcow-network:
           aliases:
@@ -57,8 +53,6 @@ services:
         - "6379:6379"
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
       networks:
         mailcow-network:
           ipv4_address: ${IPV4_NETWORK:-172.22.1}.249
@@ -66,7 +60,7 @@ services:
             - redis
 
     clamd-mailcow:
-      image: mailcow/clamd:1.12
+      image: mailcow/clamd:1.13
       build: ./data/Dockerfiles/clamd
       restart: always
       tty: true
@@ -75,18 +69,17 @@ services:
         - SKIP_CLAMD=${SKIP_CLAMD:-n}
       volumes:
         - ./data/conf/clamav/:/etc/clamav/:z
+        - ./data/conf/clamav/whitelist.ign2:/var/lib/clamav/whitelist.ign2:z
         - /etc/localtime:/etc/localtime:ro
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
       networks:
         mailcow-network:
           aliases:
             - clamd
 
     rspamd-mailcow:
-      image: mailcow/rspamd:1.23
+      image: mailcow/rspamd:1.24
       build: ./data/Dockerfiles/rspamd
       stop_grace_period: 30s
       depends_on:
@@ -102,8 +95,6 @@ services:
         - rspamd-vol-1:/var/lib/rspamd:z
         - /etc/localtime:/etc/localtime:ro
       restart: always
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
       hostname: rspamd
@@ -145,9 +136,8 @@ services:
         - SMTP_PORT=${SMTP_PORT:-25}
         - API_KEY=${API_KEY:-invalid}
         - API_ALLOW_FROM=${API_ALLOW_FROM:-invalid}
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-mailcow-dockerized}
       restart: always
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
       networks:
@@ -156,7 +146,7 @@ services:
             - phpfpm
 
     sogo-mailcow:
-      image: mailcow/sogo:1.29
+      image: mailcow/sogo:1.33
       build: ./data/Dockerfiles/sogo
       environment:
         - DBNAME=${DBNAME}
@@ -169,8 +159,6 @@ services:
         - ./data/conf/sogo/:/etc/sogo/:z
         - /etc/localtime:/etc/localtime:ro
       restart: always
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
       networks:
@@ -180,7 +168,7 @@ services:
             - sogo
 
     dovecot-mailcow:
-      image: mailcow/dovecot:1.30
+      image: mailcow/dovecot:1.33
       build: ./data/Dockerfiles/dovecot
       cap_add:
         - NET_BIND_SERVICE
@@ -214,8 +202,6 @@ services:
           hard: 40000
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
       hostname: ${MAILCOW_HOSTNAME}
       networks:
         mailcow-network:
@@ -223,13 +209,14 @@ services:
             - dovecot
 
     postfix-mailcow:
-      image: mailcow/postfix:1.17
+      image: mailcow/postfix:1.20
       build: ./data/Dockerfiles/postfix
       volumes:
         - ./data/conf/postfix:/opt/postfix/conf:z
         - ./data/assets/ssl:/etc/ssl/mail/:ro,z
         - postfix-vol-1:/var/spool/postfix:z
         - crypt-vol-1:/var/lib/zeyple:z
+        - rspamd-sock:/rspamd-sock:z
         - /etc/localtime:/etc/localtime:ro
       environment:
         - LOG_LINES=${LOG_LINES:-9999}
@@ -246,8 +233,6 @@ services:
       restart: always
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
       hostname: ${MAILCOW_HOSTNAME}
       networks:
         mailcow-network:
@@ -261,8 +246,6 @@ services:
       ports:
         - "11211:11211"
       restart: always
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
       networks:
@@ -304,8 +287,6 @@ services:
         - "${HTTPS_BIND:-0.0.0.0}:${HTTPS_PORT:-443}:${HTTPS_PORT:-443}"
         - "${HTTP_BIND:-0.0.0.0}:${HTTP_PORT:-80}:${HTTP_PORT:-80}"
       restart: always
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
       networks:
@@ -317,10 +298,8 @@ services:
       depends_on:
         - nginx-mailcow
         - mysql-mailcow
-      image: mailcow/acme:1.34
+      image: mailcow/acme:1.37
       build: ./data/Dockerfiles/acme
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
       environment:
@@ -345,7 +324,7 @@ services:
             - acme
 
     netfilter-mailcow:
-      image: mailcow/netfilter:1.17
+      image: mailcow/netfilter:1.19
       build: ./data/Dockerfiles/netfilter
       stop_grace_period: 30s
       depends_on:
@@ -374,8 +353,7 @@ services:
       # Debug
       #command: /watchdog.sh
       build: ./data/Dockerfiles/watchdog
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
+      oom_kill_disable: true
       volumes:
         - rspamd-sock:/rspamd-sock:z
         - /etc/localtime:/etc/localtime:ro
@@ -401,9 +379,7 @@ services:
       image: mailcow/dockerapi:1.13
       restart: always
       build: ./data/Dockerfiles/dockerapi
-      sysctls:
-        - net.ipv6.conf.all.disable_ipv6=${SYSCTL_IPV6_DISABLED:-0}
-      oom_score_adj: -10
+      oom_kill_disable: true
       environment:
         - TZ=${TZ}
       volumes:
