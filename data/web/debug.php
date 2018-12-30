@@ -1,16 +1,16 @@
 <?php
-require_once "inc/prerequisites.inc.php";
+require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/prerequisites.inc.php';
 
 if (isset($_SESSION['mailcow_cc_role']) && $_SESSION['mailcow_cc_role'] == "admin") {
-require_once "inc/header.inc.php";
+require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/header.inc.php';
 $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
 
 ?>
 <div class="container">
 
   <ul class="nav nav-tabs" role="tablist">
-    <li role="presentation" class="active"><a href="#tab-containers" aria-controls="tab-containers" role="tab" data-toggle="tab">Containers & System</a></li>
-    <li class="dropdown"><a class="dropdown-toggle" data-toggle="dropdown" href="#">Logs
+    <li role="presentation" class="active"><a href="#tab-containers" aria-controls="tab-containers" role="tab" data-toggle="tab"><?=$lang['debug']['system_containers'];?></a></li>
+    <li class="dropdown"><a class="dropdown-toggle" data-toggle="dropdown" href="#"><?=$lang['debug']['logs'];?>
       <span class="caret"></span></a>
       <ul class="dropdown-menu">
         <li role="presentation"><span class="dropdown-desc"><?=$lang['debug']['in_memory_logs'];?></span></li>
@@ -22,6 +22,7 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
         <li role="presentation"><a href="#tab-watchdog-logs" aria-controls="tab-watchdog-logs" role="tab" data-toggle="tab">Watchdog</a></li>
         <li role="presentation"><a href="#tab-acme-logs" aria-controls="tab-acme-logs" role="tab" data-toggle="tab">ACME</a></li>
         <li role="presentation"><a href="#tab-api-logs" aria-controls="tab-api-logs" role="tab" data-toggle="tab">API</a></li>
+        <li role="presentation"><a href="#tab-api-rl" aria-controls="tab-api-rl" role="tab" data-toggle="tab">Ratelimits</a></li>
         <li role="presentation"><span class="dropdown-desc"><?=$lang['debug']['external_logs'];?></span></li>
         <li role="presentation"><a href="#tab-rspamd-history" aria-controls="tab-rspamd-history" role="tab" data-toggle="tab">Rspamd</a></li>
         <li role="presentation"><span class="dropdown-desc"><?=$lang['debug']['static_logs'];?></span></li>
@@ -35,13 +36,13 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
       <div class="tab-content" style="padding-top:20px">
         <div class="debug-log-info"><?=sprintf($lang['debug']['log_info'], getenv('LOG_LINES') + 1);?></div>
         <?php
-          $exec_fields = array('cmd' => 'df', 'dir' => '/var/vmail');
+          $exec_fields = array('cmd' => 'system', 'task' => 'df', 'dir' => '/var/vmail');
           $vmail_df = explode(',', json_decode(docker('post', 'dovecot-mailcow', 'exec', $exec_fields), true));
         ?>
         <div role="tabpanel" class="tab-pane active" id="tab-containers">
           <div class="panel panel-default">
             <div class="panel-heading">
-              <h3 class="panel-title">Disk usage</h3>
+              <h3 class="panel-title"><?=$lang['debug']['disk_usage'];?></h3>
             </div>
             <div class="panel-body">
               <div class="row">
@@ -59,7 +60,7 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
           </div>
           <div class="panel panel-default">
             <div class="panel-heading">
-              <h3 class="panel-title">Container information</h3>
+              <h3 class="panel-title"><?=$lang['debug']['containers_info'];?></h3>
             </div>
             <div class="panel-body">
             <ul class="list-group">
@@ -90,7 +91,7 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
               }
               ?>
               <small>(Started on <?=$started;?>),
-              <a href data-toggle="modal" data-container="<?=$container;?>" data-target="#RestartContainer">Restart</a></small>
+              <a href data-toggle="modal" data-container="<?=$container;?>" data-target="#RestartContainer"><?=$lang['debug']['restart_container'];?></a></small>
               <span class="pull-right label label-<?=($container_info['State'] !== false && !empty($container_info['State'])) ? (($container_info['State']['Running'] == 1) ? 'success' : 'danger') : 'default'; ?>">&nbsp;&nbsp;&nbsp;</span>
               </li>
               <?php
@@ -272,6 +273,24 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
           </div>
         </div>
 
+        <div role="tabpanel" class="tab-pane" id="tab-api-rl">
+          <div class="panel panel-default">
+            <div class="panel-heading">Ratelimits <span class="badge badge-info table-lines"></span>
+              <div class="btn-group pull-right">
+                <button class="btn btn-xs btn-default add_log_lines" data-post-process="rllog" data-table="rl_log" data-log-url="ratelimited" data-nrows="100">+ 100</button>
+                <button class="btn btn-xs btn-default add_log_lines" data-post-process="rllog" data-table="rl_log" data-log-url="ratelimited" data-nrows="1000">+ 1000</button>
+                <button class="btn btn-xs btn-default refresh_table" data-draw="draw_rl_logs" data-table="rl_log"><?=$lang['admin']['refresh'];?></button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <p class="help-block"><?=$lang['admin']['hash_remove_info'];?></p>
+              <div class="table-responsive">
+                <table class="table table-striped table-condensed" id="rl_log"></table>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div> <!-- /tab-content -->
     </div> <!-- /col-md-12 -->
   </div> <!-- /row -->
@@ -288,8 +307,8 @@ echo "var log_pagination_size = '". $LOG_PAGINATION_SIZE . "';\n";
 
 ?>
 </script>
-<script src="js/footable.min.js"></script>
-<script src="js/debug.js"></script>
+<script src="/js/footable.min.js"></script>
+<script src="/js/debug.js"></script>
 <?php
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/footer.inc.php';
 }

@@ -8,6 +8,8 @@ jQuery(function($){
   var entityMap={"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;","/":"&#x2F;","`":"&#x60;","=":"&#x3D;"};
   function escapeHtml(n){return String(n).replace(/[&<>"'`=\/]/g,function(n){return entityMap[n]})}
   function humanFileSize(i){if(Math.abs(i)<1024)return i+" B";var B=["KiB","MiB","GiB","TiB","PiB","EiB","ZiB","YiB"],e=-1;do{i/=1024,++e}while(Math.abs(i)>=1024&&e<B.length-1);return i.toFixed(1)+" "+B[e]}
+  function hashCode(t){for(var n=0,r=0;r<t.length;r++)n=t.charCodeAt(r)+((n<<5)-n);return n}
+  function intToRGB(t){var n=(16777215&t).toString(16).toUpperCase();return"00000".substring(0,6-n.length)+n}
   $(".refresh_table").on('click', function(e) {
     e.preventDefault();
     var table_name = $(this).data('table');
@@ -162,15 +164,58 @@ jQuery(function($){
       }
     });
   }
+  function draw_rl_logs() {
+    ft_rl_logs = FooTable.init('#rl_log', {
+      "columns": [
+        {"name":"indicator","title":" ","style":{"width":"50px"}},
+        {"name":"time","formatter":function unix_time_format(tm) { var date = new Date(tm ? tm * 1000 : 0); return date.toLocaleString();},"title":lang.last_applied,"style":{"width":"170px"}},
+        {"name":"rl_name","title":lang.rate_name},
+        {"name":"from","title":lang.sender},
+        {"name":"rcpt","title":lang.recipients},
+        {"name":"user","title":lang.authed_user},
+        {"name":"message_id","title":"Msg ID","breakpoints": "all","style":{"word-break":"break-all"}},
+        {"name":"header_from","title":"Header From","breakpoints": "all","style":{"word-break":"break-all"}},
+        {"name":"header_subject","title":"Subject","breakpoints": "all","style":{"word-break":"break-all"}},
+        {"name":"rl_hash","title":"Hash","breakpoints": "all","style":{"word-break":"break-all"}},
+        {"name":"qid","title":"Rspamd QID","breakpoints": "all","style":{"word-break":"break-all"}},
+        {"name":"ip","title":"IP","breakpoints": "all","style":{"word-break":"break-all"}},
+        {"name":"action","title":lang.action,"breakpoints": "all","style":{"word-break":"break-all"}},
+      ],
+      "rows": $.ajax({
+        dataType: 'json',
+        url: '/api/v1/get/logs/ratelimited',
+        jsonp: false,
+        error: function () {
+          console.log('Cannot draw rl log table');
+        },
+        success: function (data) {
+          return process_table_data(data, 'rllog');
+        }
+      }),
+      "empty": lang.empty,
+      "paging": {"enabled": true,"limit": 5,"size": log_pagination_size},
+      "filtering": {"enabled": true,"delay": 1,"position": "left","connectors": false,"placeholder": lang.filter_table},
+      "sorting": {"enabled": true},
+      "on": {
+        "ready.ft.table": function(e, ft){
+          table_log_ready(ft, 'rl_logs');
+        },
+        "after.ft.paging": function(e, ft){
+          table_log_paging(ft, 'rl_logs');
+        }
+      }
+    });
+  }
   function draw_ui_logs() {
     ft_api_logs = FooTable.init('#ui_logs', {
       "columns": [
         {"name":"time","formatter":function unix_time_format(tm) { var date = new Date(tm ? tm * 1000 : 0); return date.toLocaleString();},"title":lang.time,"style":{"width":"170px"}},
         {"name":"type","title":"Type"},
+        {"name":"task","title":"Task"},
         {"name":"user","title":"User"},
         {"name":"role","title":"Role"},
         {"name":"remote","title":"IP"},
-        {"name":"msg","title":lang.message},
+        {"name":"msg","title":lang.message,"style":{"word-break":"break-all"}},
         {"name":"call","title":"Call","breakpoints": "all"},
       ],
       "rows": $.ajax({
@@ -506,12 +551,19 @@ jQuery(function($){
       $.each(data, function (i, item) {
         if (item === null) { return true; }
         item.user = escapeHtml(item.user);
+        item.task = '<code>' + item.task + '</code>';
         item.type = '<span class="label label-' + item.type + '">' + item.type + '</span>';
       });
     } else if (table == 'general_syslog') {
       $.each(data, function (i, item) {
         if (item === null) { return true; }
-        item.message = escapeHtml(item.message);
+        if (item.message.match("^base64,")) {
+          item.message = atob(item.message.slice(7));
+          item.message = item.message.replace(/(?!^)acme-client:/g, '<br>acme-client:')
+          item.message = item.message.replace(/acme-client:/g, '<b>acme-client:</b>')
+        } else {
+          item.message = escapeHtml(item.message);
+        }
         var danger_class = ["emerg", "alert", "crit", "err"];
         var warning_class = ["warning", "warn"];
         var info_class = ["notice", "info", "debug"];
@@ -530,6 +582,19 @@ jQuery(function($){
           item.method = '<span class="label label-success">' + item.method + '</span>';
         } else if (item.method == 'POST') {
           item.method = '<span class="label label-warning">' + item.method + '</span>';
+        }
+      });
+    } else if (table == 'rllog') {
+      $.each(data, function (i, item) {
+        if (item.user == null) {
+          item.user = "none";
+        }
+        if (item.rl_hash == null) {
+          item.rl_hash = "err";
+        }
+        item.indicator = '<span style="border-right:6px solid #' + intToRGB(hashCode(item.rl_hash)) + ';padding-left:5px;">&nbsp;</span>';
+        if (item.rl_hash != 'err') {
+          item.action = '<a href="#" data-action="delete_selected" data-id="single-hash" data-api-url="delete/rlhash" data-item="' + encodeURI(item.rl_hash) + '" class="btn btn-xs btn-danger"><span class="glyphicon glyphicon-trash"></span> ' + lang.reset_limit + '</a>';
         }
       });
     }
@@ -567,6 +632,7 @@ jQuery(function($){
   draw_watchdog_logs();
   draw_acme_logs();
   draw_api_logs();
+  draw_rl_logs();
   draw_ui_logs();
   draw_netfilter_logs();
   draw_rspamd_history();

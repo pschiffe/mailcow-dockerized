@@ -3,6 +3,8 @@
 #exit on error and pipefail
 set -o pipefail
 
+umask 0022
+
 for bin in curl docker-compose docker git awk sha1sum; do
   if [[ -z $(which ${bin}) ]]; then echo "Cannot find ${bin}, exiting..."; exit 1; fi
 done
@@ -12,7 +14,6 @@ DATE=$(date +%Y-%m-%d_%H_%M_%S)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 docker_garbage() {
-  echo -e "\e[32mCollecting garbage...\e[0m"
   IMGS_TO_DELETE=()
   for container in $(grep -oP "image: \Kmailcow.+" docker-compose.yml); do
     REPOSITORY=${container/:*}
@@ -74,6 +75,7 @@ while (($#)); do
       MERGE_STRATEGY=ours
     ;;
     --gc)
+      echo -e "\e[32mCollecting garbage...\e[0m"
       docker_garbage
       exit 0
     ;;
@@ -114,11 +116,11 @@ CONFIG_ARRAY=(
   "LOG_LINES"
   "SNAT_TO_SOURCE"
   "SNAT6_TO_SOURCE"
-  "SYSCTL_IPV6_DISABLED"
   "COMPOSE_PROJECT_NAME"
   "SQL_PORT"
   "API_KEY"
   "API_ALLOW_FROM"
+  "MAILDIR_GC_TIME"
 )
 
 sed -i '$a\' mailcow.conf
@@ -127,15 +129,6 @@ for option in ${CONFIG_ARRAY[@]}; do
     if ! grep -q ${option} mailcow.conf; then
       echo "Adding new option \"${option}\" to mailcow.conf"
       echo "${option}=" >> mailcow.conf
-    fi
-  elif [[ ${option} == "SYSCTL_IPV6_DISABLED" ]]; then
-    if ! grep -q ${option} mailcow.conf; then
-      echo "Adding new option \"${option}\" to mailcow.conf"
-      echo "# Disable IPv6" >> mailcow.conf
-      echo "# mailcow-network will still be created as IPv6 enabled, all containers will be created" >> mailcow.conf
-      echo "# without IPv6 support." >> mailcow.conf
-      echo "# Use 1 for disabled, 0 for enabled" >> mailcow.conf
-      echo "SYSCTL_IPV6_DISABLED=0" >> mailcow.conf
     fi
   elif [[ ${option} == "COMPOSE_PROJECT_NAME" ]]; then
     if ! grep -q ${option} mailcow.conf; then
@@ -200,6 +193,15 @@ for option in ${CONFIG_ARRAY[@]}; do
       echo '# Use this IPv6 for outgoing connections (SNAT)' >> mailcow.conf
       echo "#SNAT6_TO_SOURCE=" >> mailcow.conf
     fi
+  elif [[ ${option} == "MAILDIR_GC_TIME" ]]; then
+    if ! grep -q ${option} mailcow.conf; then
+      echo "Adding new option \"${option}\" to mailcow.conf"
+      echo '# Garbage collector cleanup' >> mailcow.conf
+      echo '# Deleted domains and mailboxes are moved to /var/vmail/_garbage/timestamp_sanitizedstring' >> mailcow.conf
+      echo '# How long should objects remain in the garbage until they are being deleted? (value in minutes)' >> mailcow.conf
+      echo '# Check interval is hourly' >> mailcow.conf
+      echo 'MAILDIR_GC_TIME=1440' >> mailcow.conf
+    fi
   elif ! grep -q ${option} mailcow.conf; then
     echo "Adding new option \"${option}\" to mailcow.conf"
     echo "${option}=n" >> mailcow.conf
@@ -243,9 +245,12 @@ echo -e "Stopping mailcow... "
 sleep 2
 docker-compose down
 
+# Fix header check
 # Silently fixing remote url from andryyy to mailcow
 git remote set-url origin https://github.com/mailcow/mailcow-dockerized
 echo -e "\e[32mCommitting current status...\e[0m"
+[[ -z "$(git config user.name)" ]] && git config user.name moo
+[[ -z "$(git config user.email)" ]] && git config user.email moo@cow.moo
 git update-index --assume-unchanged data/conf/rspamd/override.d/worker-controller-password.inc
 git add -u
 git commit -am "Before update on ${DATE}" > /dev/null
@@ -272,7 +277,6 @@ elif [[ ${MERGE_RETURN} != 0 ]]; then
   echo "Run docker-compose up -d to restart your stack without updates or try again after fixing the mentioned errors."
   exit 1
 fi
-
 
 echo -e "\e[32mFetching new docker-compose version...\e[0m"
 sleep 2

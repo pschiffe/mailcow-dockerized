@@ -3,28 +3,24 @@
   font-style: normal;
   font-weight: 300;
   src: local('Source Sans Pro Light'), local('SourceSansPro-Light'), url('../fonts/SourceSansPro-Light.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2212, U+2215;
 }
 @font-face {
   font-family: 'Source Sans Pro';
   font-style: normal;
   font-weight: 400;
   src: local('Source Sans Pro'), local('SourceSansPro-Regular'), url('../fonts/SourceSansPro-Regular.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2212, U+2215;
 }
 @font-face {
   font-family: 'Source Sans Pro';
   font-style: normal;
   font-weight: 700;
   src: local('Source Sans Pro Bold'), local('SourceSansPro-Bold'), url('../fonts/SourceSansPro-Bold.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2212, U+2215;
 }
 @font-face {
   font-family: 'Source Sans Pro';
   font-style: italic;
   font-weight: 700;
   src: local('Source Sans Pro Bold Italic'), local('SourceSansPro-BoldIt'), url('../fonts/SourceSansPro-BoldIt.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2212, U+2215;
 }
 #maxmsgsize { min-width: 80px; }
 #slider1 .slider-selection {
@@ -34,46 +30,53 @@
 	background: #FF4500;
 }
 #slider1 .slider-track-low {
-	background: #66CD00;
+  background: #66CD00;
 }
 .striped:nth-child(odd) {
-    background-color: #fff;
+  background-color: #fff;
 }
 .striped:nth-child(even) {
-    background-color: #fafafa;
-	border:1px solid white;
+  background-color: #fafafa;
+  border:1px solid white;
 }
 .btn {
-   text-transform: none;
+  text-transform: none;
+}
+.navbar-nav {
+  margin: 0;
+}
+.navbar-fixed-bottom .navbar-collapse, 
+.navbar-fixed-top .navbar-collapse {
+  max-height: 1000px
 }
 .glyphicon-spin {
-    font-size:12px;
-    -webkit-animation: spin 2000ms infinite linear;
-    animation: spin 2000ms infinite linear;
+  font-size:12px;
+  -webkit-animation: spin 2000ms infinite linear;
+  animation: spin 2000ms infinite linear;
 }
 @-webkit-keyframes spin {
-    0% {
-        -webkit-transform: rotate(0deg);
-        transform: rotate(0deg);
-    }
-    100% {
-        -webkit-transform: rotate(359deg);
-        transform: rotate(359deg);
-    }
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(359deg);
+    transform: rotate(359deg);
+  }
 }
 @keyframes spin {
-    0% {
-        -webkit-transform: rotate(0deg);
-        transform: rotate(0deg);
-    }
-    100% {
-        -webkit-transform: rotate(359deg);
-        transform: rotate(359deg);
-    }
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(359deg);
+    transform: rotate(359deg);
+  }
 }
 pre{white-space:pre-wrap;white-space:-moz-pre-wrap;white-space:-pre-wrap;white-space:-o-pre-wrap;word-wrap:break-word;}
 .footable-sortable {
-	 -webkit-user-select: none;  
+  -webkit-user-select: none;  
   -moz-user-select: none;    
   -ms-user-select: none;      
   user-select: none;
@@ -101,6 +104,7 @@ legend {
   -ms-user-select: none
   -o-user-select: none;
   user-select: none;
+  font-size: 12pt;
 }
 .navbar .navbar-brand {
   padding-top: 5px;
@@ -112,10 +116,10 @@ legend {
   max-width: 250px;
 }
 .lang-link-disabled a  {
-	pointer-events: none;
+  pointer-events: none;
 }
 .lang-link-disabled  {
-	cursor: not-allowed;
+  cursor: not-allowed;
 }
 .dkim-label {
   margin: 0 0 2px !important;
@@ -130,9 +134,6 @@ legend {
 nav .glyphicon {
   font-size: 12px !important;
 }
-.logged-in-as {
-  border-left: 1px solid #E7E7E7;
-}
 #top {
   padding-top: 70px;
 }
@@ -146,4 +147,14 @@ nav .glyphicon {
   font-weight: bold;
   color: #5a5a5a;
   white-space: nowrap;
+}
+.haveibeenpwned {
+  cursor: pointer;
+  -webkit-user-select: none;  
+  -moz-user-select: none;    
+  -ms-user-select: none;      
+  user-select: none;
+}
+.full-width-select {
+  width: 100%!important;  
 }

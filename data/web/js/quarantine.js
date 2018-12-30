@@ -28,7 +28,7 @@ jQuery(function($){
           $.each(data, function (i, item) {
             item.action = '<div class="btn-group">' +
               '<a href="#" data-item="' + encodeURI(item.id) + '" class="btn btn-xs btn-info show_qid_info"><span class="glyphicon glyphicon-modal-window"></span> ' + lang.show_item + '</a>' +
-              '<a href="#" id="delete_selected" data-id="del-single-qitem" data-api-url="delete/qitem" data-item="' + encodeURI(item.id) + '" class="btn btn-xs btn-danger"><span class="glyphicon glyphicon-trash"></span> ' + lang.remove + '</a>' +
+              '<a href="#" data-action="delete_selected" data-id="del-single-qitem" data-api-url="delete/qitem" data-item="' + encodeURI(item.id) + '" class="btn btn-xs btn-danger"><span class="glyphicon glyphicon-trash"></span> ' + lang.remove + '</a>' +
               '</div>';
             item.chkbox = '<input type="checkbox" data-id="qitems" name="multi_select" value="' + item.id + '" />';
           });
@@ -60,6 +60,12 @@ jQuery(function($){
             $( "#qid_error" ).text(data.error);
             $( "#qid_error" ).show();
           }
+          $( "li" ).each(function( index ) {
+            console.log( index + ": " + $( this ).text() );
+          });
+          $('[data-id="qitems_single"]').each(function( index ) {
+            $(this).attr("data-item", qitem);
+          });
           $('#qid_detail_subj').text(data.subject);
           $('#qid_detail_text').text(data.text_plain);
           $('#qid_detail_text_from_html').text(data.text_html);
