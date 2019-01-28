@@ -344,6 +344,8 @@ $lang['edit']['max_mailboxes'] = 'Max. Mailboxanzahl:';
 $lang['edit']['title'] = 'Objekt bearbeiten';
 $lang['edit']['target_address'] = 'Ziel-Adresse(n) <small>(getrennt durch Komma)</small>:';
 $lang['edit']['active'] = 'Aktiv';
+$lang['edit']['gal'] = 'Globales Adressbuch';
+$lang['edit']['gal_info'] = 'Das Globale Adressbuch enthält alle Objekte einer Domain und kann durch keinen Benutzer editiert werden. <b>Zum Anwenden einer Änderung muss SOGo neugestartet werden.</b>';
 $lang['edit']['force_pw_update'] = 'Erzwinge Passwortänderung bei nächstem Login';
 $lang['edit']['force_pw_update_info'] = 'Dem Benutzer wird lediglich der Zugang zur mailcow UI ermöglicht.';
 $lang['edit']['sogo_access'] = 'SOGo Zugriffsrecht';
@@ -587,10 +589,10 @@ $lang['admin']['transports_hint'] = 'Transport Maps <b>überwiegen</b> senderabh
   Ein Eintrag in der TLS Policy Map kann eine Verschlüsselung erzwingen.<br>
   Die Authentifizierung wird anhand des Host Parameters ermittelt, hierbei würde bei einem beispielhaften Next Hop "[host]:25" immer zuerst "host" abfragt und <b>erst im Anschluss</b> "[host]:25".<br>
   Dieses Verhalten schließt die <b>gleichzeitige Verwendung</b> von Einträgen der Art "host" sowie "[host]:25" aus.';
-$lang['admin']['add_relayhost_hint'] = 'Bitte beachten Sie, dass Anmeldedaten klartext gespeichert werden.<br>
+$lang['admin']['add_relayhost_hint'] = 'Bitte beachten Sie, dass Anmeldedaten unverschlüsselt gespeichert werden.<br>
   Angelegte Transporte dieser Art sind <b>senderabhängig</b> und müssen erst einer Domain zugewiesen werden, bevor sie als Transport verwendet werden.<br>
   Diese Einstellungen entsprechen demach <i>nicht</i> dem "relayhost" Parameter in Postfix.';
-$lang['admin']['add_transports_hint'] = 'Bitte beachten Sie, dass Anmeldedaten klartext gespeichert werden.';
+$lang['admin']['add_transports_hint'] = 'Bitte beachten Sie, dass Anmeldedaten unverschlüsselt gespeichert werden.';
 $lang['admin']['host'] = 'Host';
 $lang['admin']['source'] = 'Quelle';
 $lang['admin']['add_forwarding_host'] = 'Weiterleitungs-Host hinzufügen';
@@ -698,11 +700,18 @@ $lang['debug']['log_info'] = '<p>mailcow <b>in-memory Logs</b> werden in Redis L
   <br>In-memory Logs sind vergänglich und nicht zur ständigen Aufbewahrung bestimmt. Alle Anwendungen, die in-memory protokollieren, schreiben ebenso in den Docker Daemon.
   <br>Das in-memory Protokoll versteht sich als schnelle Übersicht zum Debugging eines Containers, für komplexere Protokolle sollte der Docker Daemon konsultiert werden.</p>
   <p><b>Externe Logs</b> werden via API externer Applikationen bezogen.</p>
-  <p><b>Statische Logs</b> sind weitesgehend Aktivitätsprotokolle, die nicht in den Docker Daemon geschrieben werden, jedoch permanent verfügbar sein müssen (ausgeschloßen API Logs).</p>';
+  <p><b>Statische Logs</b> sind weitestgehend Aktivitätsprotokolle, die nicht in den Docker Daemon geschrieben werden, jedoch permanent verfügbar sein müssen (ausgeschloßen API Logs).</p>';
 
 $lang['debug']['in_memory_logs'] = 'In-memory Logs';
 $lang['debug']['external_logs'] = 'Externe Logs';
 $lang['debug']['static_logs'] = 'Statische Logs';
+$lang['debug']['solr_status'] = 'Solr Status';
+$lang['debug']['solr_dead'] = 'Solr startet, ist deaktiviert oder temporär nicht erreichbar.';
+$lang['debug']['solr_uptime'] = 'Uptime';
+$lang['debug']['solr_started_at'] = 'Gestartet am';
+$lang['debug']['solr_last_modified'] = 'Zuletzt geändert';
+$lang['debug']['solr_size'] = 'Größe';
+$lang['debug']['solr_docs'] = 'Dokumente';
 
 $lang['quarantine']['release_body'] = "Die ursprüngliche Nachricht wurde als EML-Datei im Anhang hinterlegt.";
 $lang['danger']['release_send_failed'] = "Die Nachricht konnte nicht versendet werden: %s";
