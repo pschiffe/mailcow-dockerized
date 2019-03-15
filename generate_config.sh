@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -o pipefail
 
@@ -16,6 +16,7 @@ if [ -f mailcow.conf ]; then
   case $response in
     [yY][eE][sS]|[yY])
       mv mailcow.conf mailcow.conf_backup
+      chmod 600 mailcow.conf_backup
       ;;
     *)
       exit 1
@@ -148,6 +149,12 @@ TZ=${MAILCOW_TZ}
 
 COMPOSE_PROJECT_NAME=mailcowdockerized
 
+# Set this to "allow" to enable the anyone pseudo user. Disabled by default.
+# When enabled, ACL can be created, that apply to "All authenticated users"
+# This should probably only be activated on mail hosts, that are used exclusivly by one organisation.
+# Otherwise a user might share data with too many other users.
+ACL_ANYONE=disallow
+
 # Garbage collector cleanup
 # Deleted domains and mailboxes are moved to /var/vmail/_garbage/timestamp_sanitizedstring
 # How long should objects remain in the garbage until they are being deleted? (value in minutes)
@@ -183,7 +190,7 @@ SKIP_IP_CHECK=n
 
 SKIP_CLAMD=${SKIP_CLAMD}
 
-# Skip Solr on low-memory systems
+# Skip Solr on low-memory systems or if you do not want to store a readable index of your mails in solr-vol-1.
 SKIP_SOLR=${SKIP_SOLR}
 
 # Solr heap size in MB, there is no recommendation, please see Solr docs.
@@ -230,6 +237,8 @@ IPV6_NETWORK=fd4d:6169:6c63:6f77::/64
 EOF
 
 mkdir -p data/assets/ssl
+
+chmod 600 mailcow.conf
 
 # copy but don't overwrite existing certificate
 cp -n data/assets/ssl-example/*.pem data/assets/ssl/

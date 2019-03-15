@@ -1,9 +1,11 @@
 <?php
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/vars.inc.php';
 $default_autodiscover_config = $autodiscover_config;
+
 if (file_exists($_SERVER['DOCUMENT_ROOT'] . '/inc/vars.local.inc.php')) {
   include_once $_SERVER['DOCUMENT_ROOT'] . '/inc/vars.local.inc.php';
 }
+unset($https_port);
 $autodiscover_config = array_merge($default_autodiscover_config, $autodiscover_config);
 
 header_remove("X-Powered-By");
@@ -16,6 +18,21 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/lib/vendor/autoload.php';
 
 // Load Sieve
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/lib/sieve/SieveParser.php';
+
+// Minify JS
+use MatthiasMullie\Minify;
+$js_minifier = new Minify\JS();
+$js_dir = array_diff(scandir('/web/js/build'), array('..', '.'));
+foreach ($js_dir as $js_file) {
+  $js_minifier->add('/web/js/build/' . $js_file);
+}
+
+// Minify CSS
+$css_minifier = new Minify\CSS();
+$css_dir = array_diff(scandir('/web/css/build'), array('..', '.'));
+foreach ($css_dir as $css_file) {
+  $css_minifier->add('/web/css/build/' . $css_file);
+}
 
 // U2F API + T/HOTP API
 $u2f = new u2flib_server\U2F('https://' . $_SERVER['HTTP_HOST']);
@@ -142,6 +159,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/functions.address_rewriting.inc.p
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/functions.domain_admin.inc.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/functions.admin.inc.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/functions.quarantine.inc.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/functions.quota_notification.inc.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/functions.policy.inc.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/functions.dkim.inc.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/functions.fwdhost.inc.php';

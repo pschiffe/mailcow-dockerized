@@ -322,7 +322,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             );
             return false;
           }
-          $domain				= idn_to_ascii(strtolower(trim($_data['domain'])));
+          $domain				= idn_to_ascii(strtolower(trim($_data['domain'])), 0, INTL_IDNA_VARIANT_UTS46);
           $description  = $_data['description'];
           $aliases			= $_data['aliases'];
           $mailboxes    = $_data['mailboxes'];
@@ -453,6 +453,16 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
           $goto_null = intval($_data['goto_null']);
           $goto_spam = intval($_data['goto_spam']);
           $goto_ham = intval($_data['goto_ham']);
+          $private_comment = $_data['private_comment'];
+          $public_comment = $_data['public_comment'];
+          if (strlen($private_comment) > 160 | strlen($public_comment) > 160){
+            $_SESSION['return'][] = array(
+              'type' => 'danger',
+              'log' => array(__FUNCTION__, $_action, $_type, $_data_log, $_attr),
+              'msg' => 'comment_too_long'
+            );
+            return false;
+          } 
           if (empty($addresses[0])) {
             $_SESSION['return'][] = array(
               'type' => 'danger',
@@ -483,7 +493,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
               if (empty($goto)) {
                 continue;
               }
-              $goto_domain = idn_to_ascii(substr(strstr($goto, '@'), 1));
+              $goto_domain = idn_to_ascii(substr(strstr($goto, '@'), 1), 0, INTL_IDNA_VARIANT_UTS46);
               $goto_local_part = strstr($goto, '@', true);
               $goto = $goto_local_part.'@'.$goto_domain;
               $stmt = $pdo->prepare("SELECT `username` FROM `mailbox`
@@ -521,7 +531,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             if (in_array($address, $gotos)) {
               continue;
             }
-            $domain       = idn_to_ascii(substr(strstr($address, '@'), 1));
+            $domain       = idn_to_ascii(substr(strstr($address, '@'), 1), 0, INTL_IDNA_VARIANT_UTS46);
             $local_part   = strstr($address, '@', true);
             $address      = $local_part.'@'.$domain;
             $domaindata = mailbox('get', 'domain_details', $domain);
@@ -593,10 +603,13 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
               );
               return false;
             }
-            $stmt = $pdo->prepare("INSERT INTO `alias` (`address`, `goto`, `domain`, `active`)
-              VALUES (:address, :goto, :domain, :active)");
+            $stmt = $pdo->prepare("INSERT INTO `alias` (`address`, `public_comment`, `private_comment`, `goto`, `domain`, `active`)
+              VALUES (:address, :public_comment, :private_comment, :goto, :domain, :active)");
             if (!filter_var($address, FILTER_VALIDATE_EMAIL) === true) {
               $stmt->execute(array(
+                ':address' => '@'.$domain,
+                ':public_comment' => $public_comment,
+                ':private_comment' => $private_comment,
                 ':address' => '@'.$domain,
                 ':goto' => $goto,
                 ':domain' => $domain,
@@ -606,6 +619,8 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             else {
               $stmt->execute(array(
                 ':address' => $address,
+                ':public_comment' => $public_comment,
+                ':private_comment' => $private_comment,
                 ':goto' => $goto,
                 ':domain' => $domain,
                 ':active' => $active
@@ -622,7 +637,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
           $active = intval($_data['active']);
           $alias_domains  = array_map('trim', preg_split( "/( |,|;|\n)/", $_data['alias_domain']));
           $alias_domains = array_filter($alias_domains);
-          $target_domain = idn_to_ascii(strtolower(trim($_data['target_domain'])));
+          $target_domain = idn_to_ascii(strtolower(trim($_data['target_domain'])), 0, INTL_IDNA_VARIANT_UTS46);
           if (!isset($_SESSION['acl']['alias_domains']) || $_SESSION['acl']['alias_domains'] != "1" ) {
             $_SESSION['return'][] = array(
               'type' => 'danger',
@@ -648,7 +663,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             return false;
           }
           foreach ($alias_domains as $i => $alias_domain) {
-            $alias_domain = idn_to_ascii(strtolower(trim($alias_domain)));
+            $alias_domain = idn_to_ascii(strtolower(trim($alias_domain)), 0, INTL_IDNA_VARIANT_UTS46);
             if (!is_valid_domain_name($alias_domain)) {
               $_SESSION['return'][] = array(
                 'type' => 'danger',
@@ -720,7 +735,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
         break;
         case 'mailbox':
           $local_part   = strtolower(trim($_data['local_part']));
-          $domain       = idn_to_ascii(strtolower(trim($_data['domain'])));
+          $domain       = idn_to_ascii(strtolower(trim($_data['domain'])), 0, INTL_IDNA_VARIANT_UTS46);
           $username     = $local_part . '@' . $domain;
           if (!filter_var($username, FILTER_VALIDATE_EMAIL)) {
             $_SESSION['return'][] = array(
@@ -740,7 +755,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
           }
           $password     = $_data['password'];
           $password2    = $_data['password2'];
-          $name         = $_data['name'];
+          $name         = ltrim(rtrim($_data['name'], '>'), '<');
           $quota_m			= filter_var($_data['quota'], FILTER_SANITIZE_NUMBER_FLOAT);
           if (empty($name)) {
             $name = $local_part;
@@ -753,7 +768,8 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
               'tls_enforce_in' => strval(intval($MAILBOX_DEFAULT_ATTRIBUTES['tls_enforce_in'])),
               'tls_enforce_out' => strval(intval($MAILBOX_DEFAULT_ATTRIBUTES['tls_enforce_out'])),
               'sogo_access' => strval(intval($MAILBOX_DEFAULT_ATTRIBUTES['sogo_access'])),
-              'mailbox_format' => strval($MAILBOX_DEFAULT_ATTRIBUTES['mailbox_format'])
+              'mailbox_format' => strval($MAILBOX_DEFAULT_ATTRIBUTES['mailbox_format']),
+              'quarantine_notification' => strval($MAILBOX_DEFAULT_ATTRIBUTES['quarantine_notification'])
             )
           );
           if (!is_valid_domain_name($domain)) {
@@ -922,7 +938,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
           );
         break;
         case 'resource':
-          $domain             = idn_to_ascii(strtolower(trim($_data['domain'])));
+          $domain             = idn_to_ascii(strtolower(trim($_data['domain'])), 0, INTL_IDNA_VARIANT_UTS46);
           $description        = $_data['description'];
           $local_part         = preg_replace('/[^\da-z]/i', '', preg_quote($description, '/'));
           $name               = $local_part . '@' . $domain;
@@ -1040,11 +1056,11 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
         case 'alias_domain':
           $alias_domains = (array)$_data['alias_domain'];
           foreach ($alias_domains as $alias_domain) {
-            $alias_domain = idn_to_ascii(strtolower(trim($alias_domain)));
+            $alias_domain = idn_to_ascii(strtolower(trim($alias_domain)), 0, INTL_IDNA_VARIANT_UTS46);
             $is_now = mailbox('get', 'alias_domain_details', $alias_domain);
             if (!empty($is_now)) {
               $active         = (isset($_data['active'])) ? intval($_data['active']) : $is_now['active_int'];
-              $target_domain  = (!empty($_data['target_domain'])) ? idn_to_ascii(strtolower(trim($_data['target_domain']))) : $is_now['target_domain'];
+              $target_domain  = (!empty($_data['target_domain'])) ? idn_to_ascii(strtolower(trim($_data['target_domain'])), 0, INTL_IDNA_VARIANT_UTS46) : $is_now['target_domain'];
             }
             else {
               $_SESSION['return'][] = array(
@@ -1139,6 +1155,65 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             $stmt->execute(array(
               ':tls_out' => intval($tls_enforce_out),
               ':tls_in' => intval($tls_enforce_in),
+              ':username' => $username
+            ));
+            $_SESSION['return'][] = array(
+              'type' => 'success',
+              'log' => array(__FUNCTION__, $_action, $_type, $_data_log, $_attr),
+              'msg' => array('mailbox_modified', $username)
+            );
+          }
+        break;
+        case 'quarantine_notification':
+          if (!is_array($_data['username'])) {
+            $usernames = array();
+            $usernames[] = $_data['username'];
+          }
+          else {
+            $usernames = $_data['username'];
+          }
+          if (!isset($_SESSION['acl']['quarantine_notification']) || $_SESSION['acl']['quarantine_notification'] != "1" ) {
+            $_SESSION['return'][] = array(
+              'type' => 'danger',
+              'log' => array(__FUNCTION__, $_action, $_type, $_data_log, $_attr),
+              'msg' => 'access_denied'
+            );
+            return false;
+          }
+          foreach ($usernames as $username) {
+            if (!filter_var($username, FILTER_VALIDATE_EMAIL) || !hasMailboxObjectAccess($_SESSION['mailcow_cc_username'], $_SESSION['mailcow_cc_role'], $username)) {
+              $_SESSION['return'][] = array(
+                'type' => 'danger',
+                'log' => array(__FUNCTION__, $_action, $_type, $_data_log, $_attr),
+                'msg' => 'access_denied'
+              );
+              continue;
+            }
+            $is_now = mailbox('get', 'quarantine_notification', $username);
+            if (!empty($is_now)) {
+              $quarantine_notification = (isset($_data['quarantine_notification'])) ? $_data['quarantine_notification'] : $is_now['quarantine_notification'];
+            }
+            else {
+              $_SESSION['return'][] = array(
+                'type' => 'danger',
+                'log' => array(__FUNCTION__, $_action, $_type, $_data_log, $_attr),
+                'msg' => 'access_denied'
+              );
+              continue;
+            }
+            if (!in_array($quarantine_notification, array('never', 'hourly', 'daily', 'weekly'))) {
+              $_SESSION['return'][] = array(
+                'type' => 'danger',
+                'log' => array(__FUNCTION__, $_action, $_type, $_data_log, $_attr),
+                'msg' => 'access_denied'
+              );
+              continue;
+            } 
+            $stmt = $pdo->prepare("UPDATE `mailbox`
+              SET `attributes` = JSON_SET(`attributes`, '$.quarantine_notification', :quarantine_notification)
+                WHERE `username` = :username");
+            $stmt->execute(array(
+              ':quarantine_notification' => $quarantine_notification,
               ':username' => $username
             ));
             $_SESSION['return'][] = array(
@@ -1587,6 +1662,8 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
               $goto_null = (isset($_data['goto_null'])) ? intval($_data['goto_null']) : 0;
               $goto_spam = (isset($_data['goto_spam'])) ? intval($_data['goto_spam']) : 0;
               $goto_ham = (isset($_data['goto_ham'])) ? intval($_data['goto_ham']) : 0;
+              $public_comment = (isset($_data['public_comment'])) ? $_data['public_comment'] : $is_now['public_comment'];
+              $private_comment = (isset($_data['private_comment'])) ? $_data['private_comment'] : $is_now['private_comment'];
               $goto = (!empty($_data['goto'])) ? $_data['goto'] : $is_now['goto'];
               $address = (!empty($_data['address'])) ? $_data['address'] : $is_now['address'];
             }
@@ -1599,7 +1676,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
               continue;
             }
             if ($is_now['address'] != $address) {
-              $domain = idn_to_ascii(substr(strstr($address, '@'), 1));
+              $domain = idn_to_ascii(substr(strstr($address, '@'), 1), 0, INTL_IDNA_VARIANT_UTS46);
               $local_part = strstr($address, '@', true);
               $address      = $local_part.'@'.$domain;
               if (!hasDomainAccess($_SESSION['mailcow_cc_username'], $_SESSION['mailcow_cc_role'], $domain)) {
@@ -1703,11 +1780,15 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             if (!empty($goto)) {
               $stmt = $pdo->prepare("UPDATE `alias` SET
                 `address` = :address,
+                `public_comment` = :public_comment,
+                `private_comment` = :private_comment,
                 `goto` = :goto,
                 `active`= :active
                   WHERE `id` = :id");
               $stmt->execute(array(
                 ':address' => $address,
+                ':public_comment' => $public_comment,
+                ':private_comment' => $private_comment,
                 ':goto' => $goto,
                 ':active' => $active,
                 ':id' => $id
@@ -1729,7 +1810,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             $domains = $_data['domain'];
           }
           foreach ($domains as $domain) {
-            $domain = idn_to_ascii($domain);
+            $domain = idn_to_ascii($domain, 0, INTL_IDNA_VARIANT_UTS46);
             if (!is_valid_domain_name($domain)) {
               $_SESSION['return'][] = array(
                 'type' => 'danger',
@@ -1912,7 +1993,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
               $active     = (isset($_data['active'])) ? intval($_data['active']) : $is_now['active_int'];
               (int)$force_pw_update = (isset($_data['force_pw_update'])) ? intval($_data['force_pw_update']) : intval($is_now['attributes']['force_pw_update']);
               (int)$sogo_access = (isset($_data['sogo_access'])) ? intval($_data['sogo_access']) : intval($is_now['attributes']['sogo_access']);
-              $name       = (!empty($_data['name'])) ? $_data['name'] : $is_now['name'];
+              $name       = (!empty($_data['name'])) ? ltrim(rtrim($_data['name'], '>'), '<') : $is_now['name'];
               $domain     = $is_now['domain'];
               $quota_m    = (!empty($_data['quota'])) ? $_data['quota'] : ($is_now['quota'] / 1048576);
               $quota_b    = $quota_m * 1048576;
@@ -2367,6 +2448,22 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             'tls_enforce_out' => $attrs['tls_enforce_out']
           );
         break;
+        case 'quarantine_notification':
+          $attrs = array();
+          if (isset($_data) && filter_var($_data, FILTER_VALIDATE_EMAIL)) {
+            if (!hasMailboxObjectAccess($_SESSION['mailcow_cc_username'], $_SESSION['mailcow_cc_role'], $_data)) {
+              return false;
+            }
+          }
+          else {
+            $_data = $_SESSION['mailcow_cc_username'];
+          }
+          $stmt = $pdo->prepare("SELECT `attributes` FROM `mailbox` WHERE `username` = :username");
+          $stmt->execute(array(':username' => $_data));
+          $attrs = $stmt->fetch(PDO::FETCH_ASSOC);
+          $attrs = json_decode($attrs['attributes'], true);
+          return $attrs['quarantine_notification'];
+        break;
         case 'filters':
           $filters = array();
           if (isset($_data) && filter_var($_data, FILTER_VALIDATE_EMAIL)) {
@@ -2699,6 +2796,8 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             `domain`,
             `goto`,
             `address`,
+            `public_comment`,
+            `private_comment`,
             `active` as `active_int`,
             CASE `active` WHEN 1 THEN '".$lang['mailbox']['yes']."' ELSE '".$lang['mailbox']['no']."' END AS `active`,
             `created`,
@@ -2721,6 +2820,9 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             $aliasdata['in_primary_domain'] = "";
           }
           $aliasdata['id'] = $row['id'];
+          $aliasdata['domain'] = $row['domain'];
+          $aliasdata['public_comment'] = $row['public_comment'];
+          $aliasdata['private_comment'] = $row['private_comment'];
           $aliasdata['domain'] = $row['domain'];
           $aliasdata['goto'] = $row['goto'];
           $aliasdata['address'] = $row['address'];
@@ -2785,7 +2887,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
         break;
         case 'domain_details':
           $domaindata = array();
-          $_data = idn_to_ascii(strtolower(trim($_data)));
+          $_data = idn_to_ascii(strtolower(trim($_data)), 0, INTL_IDNA_VARIANT_UTS46);
           if (!hasDomainAccess($_SESSION['mailcow_cc_username'], $_SESSION['mailcow_cc_role'], $_data)) {
             return false;
           }
@@ -3206,7 +3308,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
               );
               continue;
             }
-            $domain	= idn_to_ascii(strtolower(trim($domain)));
+            $domain	= idn_to_ascii(strtolower(trim($domain)), 0, INTL_IDNA_VARIANT_UTS46);
             $stmt = $pdo->prepare("SELECT `username` FROM `mailbox`
               WHERE `domain` = :domain");
             $stmt->execute(array(':domain' => $domain));
@@ -3423,7 +3525,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             }
             if (strtolower(getenv('SKIP_SOLR')) == 'n') {
               $curl = curl_init();
-              curl_setopt($curl, CURLOPT_URL, 'http://solr:8983/solr/dovecot/update?commit=true');
+              curl_setopt($curl, CURLOPT_URL, 'http://solr:8983/solr/dovecot-fts/update?commit=true');
               curl_setopt($curl, CURLOPT_HTTPHEADER,array('Content-Type: text/xml'));
               curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
               curl_setopt($curl, CURLOPT_POST, 1);
@@ -3444,6 +3546,10 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             $stmt->execute(array(
               ':username' => $username
             ));
+            $stmt = $pdo->prepare("DELETE FROM `quarantine` WHERE `rcpt` = :username");
+            $stmt->execute(array(
+              ':username' => $username
+            ));
             $stmt = $pdo->prepare("DELETE FROM `quota2` WHERE `username` = :username");
             $stmt->execute(array(
               ':username' => $username
@@ -3453,6 +3559,11 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
               ':username' => $username
             ));
             $stmt = $pdo->prepare("DELETE FROM `sender_acl` WHERE `logged_in_as` = :username");
+            $stmt->execute(array(
+              ':username' => $username
+            ));
+            // fk, better safe than sorry
+            $stmt = $pdo->prepare("DELETE FROM `user_acl` WHERE `username` = :username");
             $stmt->execute(array(
               ':username' => $username
             ));

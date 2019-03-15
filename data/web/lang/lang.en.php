@@ -292,6 +292,7 @@ $lang['mailbox']['domains'] = 'Domains';
 $lang['admin']['domain'] = 'Domain';
 $lang['admin']['domain_s'] = 'Domain/s';
 $lang['mailbox']['mailboxes'] = 'Mailboxes';
+$lang['mailbox']['mailbox'] = 'Mailbox';
 $lang['mailbox']['resources'] = 'Resources';
 $lang['mailbox']['mailbox_quota'] = 'Max. size of a mailbox';
 $lang['mailbox']['domain_quota'] = 'Quota';
@@ -392,7 +393,14 @@ $lang['edit']['multiple_bookings'] = 'Multiple bookings';
 $lang['edit']['kind'] = 'Kind';
 $lang['edit']['resource'] = 'Resource';
 $lang['edit']['relayhost'] = 'Sender-dependent transports';
-
+$lang['edit']['public_comment'] = 'Public comment';
+$lang['mailbox']['public_comment'] = 'Public comment';
+$lang['edit']['private_comment'] = 'Private comment';
+$lang['mailbox']['private_comment'] = 'Private comment';
+$lang['edit']['comment_info'] = 'A private comment is not visible to the user, while a public comment is shown as tooltip when hovering it in a users overview';
+$lang['add']['public_comment'] = 'Public comment';
+$lang['add']['private_comment'] = 'Private comment';
+$lang['add']['comment_info'] = 'A private comment is not visible to the user, while a public comment is shown as tooltip when hovering it in a users overview';
 $lang['acl']['spam_alias'] = 'Temporary aliases';
 $lang['acl']['tls_policy'] = 'TLS policy';
 $lang['acl']['spam_score'] = 'Spam score';
@@ -401,7 +409,9 @@ $lang['acl']['delimiter_action'] = 'Delimiter action';
 $lang['acl']['syncjobs'] = 'Sync jobs';
 $lang['acl']['eas_reset'] = 'Reset EAS devices';
 $lang['acl']['sogo_profile_reset'] = 'Reset SOGo profile';
-$lang['acl']['quarantine'] = 'Quarantine';
+$lang['acl']['quarantine'] = 'Quarantine actions';
+$lang['acl']['quarantine_notification'] = 'Quarantine notifications';
+$lang['acl']['quarantine_attachments'] = 'Quarantine attachments';
 $lang['acl']['alias_domains'] = 'Add alias domains';
 $lang['acl']['login_as'] = 'Login as mailbox user';
 $lang['acl']['bcc_maps'] = 'BCC maps';
@@ -409,6 +419,18 @@ $lang['acl']['filters'] = 'Filters';
 $lang['acl']['ratelimit'] = 'Rate limit';
 $lang['acl']['recipient_maps'] = 'Recipient maps';
 $lang['acl']['prohibited'] = 'Prohibited by ACL';
+
+$lang['mailbox']['quarantine_notification'] = 'Quarantine notifications';
+$lang['mailbox']['never'] = 'Never';
+$lang['mailbox']['hourly'] = 'Hourly';
+$lang['mailbox']['daily'] = 'Daily';
+$lang['mailbox']['weekly'] = 'Weekly';
+$lang['user']['quarantine_notification'] = 'Quarantine notifications';
+$lang['user']['never'] = 'Never';
+$lang['user']['hourly'] = 'Hourly';
+$lang['user']['daily'] = 'Daily';
+$lang['user']['weekly'] = 'Weekly';
+$lang['user']['quarantine_notification_info'] = 'Once a notification has been sent, items will be marked as "notified" and no further notifications will be sent for this particular item.';
 
 $lang['add']['generate'] = 'generate';
 $lang['add']['syncjob'] = 'Add sync job';
@@ -609,9 +631,11 @@ $lang['admin']['forwarding_hosts_hint'] = 'Incoming messages are unconditionally
 $lang['admin']['forwarding_hosts_add_hint'] = 'You can either specify IPv4/IPv6 addresses, networks in CIDR notation, host names (which will be resolved to IP addresses), or domain names (which will be resolved to IP addresses by querying SPF records or, in their absence, MX records).';
 $lang['admin']['relayhosts_hint'] = 'Define sender-dependent transports to be able to select them in a domains configuration dialog.<br>
   The transport service is always "smtp:". A users individual outbound TLS policy setting is taken into account.';
-$lang['admin']['transports_hint'] = 'A transport map entry <b>overrules</b> a sender-dependent transport map</b>.<br>
-Outbound TLS policy settings per-user are ignored and can only be enfored by TLS policy map entries. The transport service is always "smtp:".<br>
-To determine credentials for an exemplary next hop "[host]:25", Postfix <b>always</b> queries for "nexthop" before searching for "[nexthop]:25". This behavior makes it impossible to use "nexthop" and "[nexthop]:25" at the same time.';
+$lang['admin']['transports_hint'] = '→ A transport map entry <b>overrules</b> a sender-dependent transport map</b>.<br>
+→ Outbound TLS policy settings per-user are ignored and can only be enfored by TLS policy map entries.<br>
+→ The transport service for defined transports is always "smtp:".<br>
+→ Adresses matching "/localhost$/" will always be transported via "local:", therefore a "*" destination will not apply to those addresses.<br>
+→ To determine credentials for an exemplary next hop "[host]:25", Postfix <b>always</b> queries for "host" before searching for "[host]:25". This behavior makes it impossible to use "host" and "[host]:25" at the same time.';
 $lang['admin']['add_relayhost_hint'] = 'Please be aware that authentication data, if any, will be stored as plain text.';
 $lang['admin']['add_transports_hint'] = 'Please be aware that authentication data, if any, will be stored as plain text.';
 $lang['admin']['host'] = 'Host';
@@ -652,13 +676,23 @@ $lang['admin']['queue_unban'] = "queue unban";
 $lang['admin']['no_active_bans'] = "No active bans";
 
 $lang['admin']['quarantine'] = "Quarantine";
-$lang['admin']['quarantine_retention_size'] = "Retentions per mailbox<br />0 indicates <b>inactive</b>!";
-$lang['admin']['quarantine_max_size'] = "Maximum size in MiB (larger elements are discarded)<br />0 does <b>not</b> indicate unlimited!";
-$lang['admin']['quarantine_exclude_domains'] = "Exclude domains and alias-domains:";
-$lang['admin']['quarantine_release_format'] = "Format of released items:";
+$lang['admin']['rspamd_settings_map'] = "Rspamd settings map";
+$lang['admin']['quota_notifications'] = "Quota notifications";
+$lang['admin']['quota_notifications_vars'] = "{{percent}} equals the current quota of the user<br>{{username}} is the mailbox name";
+$lang['admin']['active_rspamd_settings_map'] = "Active settings map";
+$lang['admin']['quota_notifications_info'] = "Quota notications are sent to users once when crossing 80% and once when crossing 95% usage.";
+$lang['admin']['quarantine_retention_size'] = "Retentions per mailbox:<br><small>0 indicates <b>inactive</b>.</small>";
+$lang['admin']['quarantine_max_size'] = "Maximum size in MiB (larger elements are discarded):<br><small>0 does <b>not</b> indicate unlimited.</small>";
+$lang['admin']['quarantine_exclude_domains'] = "Exclude domains and alias-domains";
+$lang['admin']['quarantine_release_format'] = "Format of released items";
 $lang['admin']['quarantine_release_format_raw'] = "Unmodified original";
 $lang['admin']['quarantine_release_format_att'] = "As attachment";
-
+$lang['admin']['quarantine_notification_sender'] = "Notification email sender";
+$lang['admin']['quarantine_notification_subject'] = "Notification email subject";
+$lang['admin']['quarantine_notification_html'] = "Notification email template:<br><small>Leave empty to restore default template.</small>";
+$lang['admin']['quota_notification_sender'] = "Notification email sender";
+$lang['admin']['quota_notification_subject'] = "Notification email subject";
+$lang['admin']['quota_notification_html'] = "Notification email template:<br><small>Leave empty to restore default template.</small>";
 $lang['admin']['ui_texts'] = "UI labels and texts";
 $lang['admin']['help_text'] = "Override help text below login mask (HTML allowed)";
 $lang['admin']['title_name'] = '"mailcow UI" website title';
@@ -679,12 +713,15 @@ $lang['admin']['merged_vars_hint'] = 'Greyed out rows were merged from <code>var
 $lang['mailbox']['waiting'] = "Waiting";
 $lang['mailbox']['status'] = "Status";
 $lang['mailbox']['running'] = "Running";
+$lang['mailbox']['enable_x'] = "Enable";
+$lang['mailbox']['disable_x'] = "Disable";
 
 $lang['edit']['spam_score'] = "Set a custom spam score";
 $lang['user']['spam_score_reset'] = "Reset to server default";
 $lang['edit']['spam_policy'] = "Add or remove items to white-/blacklist";
 $lang['edit']['spam_alias'] = "Create or change time limited alias addresses";
 
+$lang['danger']['comment_too_long'] = "Comment too long, max 160 chars allowed";
 $lang['danger']['img_tmp_missing'] = "Cannot validate image file: Temporary file not found";
 $lang['danger']['img_invalid'] = "Cannot validate image file";
 $lang['danger']['invalid_mime_type'] = "Invalid mime type";
@@ -717,6 +754,14 @@ $lang['quarantine']['subj'] = "Subject";
 $lang['quarantine']['text_plain_content'] = "Content (text/plain)";
 $lang['quarantine']['text_from_html_content'] = "Content (converted html)";
 $lang['quarantine']['atts'] = "Attachments";
+$lang['quarantine']['low_danger'] = "Low danger";
+$lang['quarantine']['neutral_danger'] = "Neutral/no rating";
+$lang['quarantine']['medium_danger'] = "Medium danger";
+$lang['quarantine']['high_danger'] = "High";
+$lang['quarantine']['danger'] = "Danger";
+$lang['quarantine']['confirm_delete'] = "Confirm the deletion of this element.";
+$lang['quarantine']['qhandler_success'] = "Request successfully sent to the system. You can now close the window.";
+
 $lang['warning']['fuzzy_learn_error'] = "Fuzzy hash learn error: %s";
 $lang['danger']['spam_learn_error'] = "Spam learn error: %s";
 $lang['success']['qlearn_spam'] = "Message ID %s was learned as spam and deleted";
@@ -808,3 +853,4 @@ $lang['warning']['ip_invalid'] = 'Skipped invalid IP: %s';
 $lang['danger']['text_empty'] = 'Text must not be empty';
 $lang['danger']['subject_empty'] = 'Subject must not be empty';
 $lang['danger']['from_invalid'] = 'Sender must not be empty';
+$lang['danger']['network_host_invalid'] = 'Invalid network or host: %s';

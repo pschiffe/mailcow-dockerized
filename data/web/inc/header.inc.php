@@ -7,32 +7,30 @@
   <meta name="theme-color" content="#F5D76E"/>
   <meta http-equiv="Referrer-Policy" content="same-origin">
   <title><?=$UI_TEXTS['title_name'];?></title>
-  <!--[if lt IE 9]>
-    <script src="/js/html5shiv.min.js"></script>
-    <script src="/js/respond.min.js"></script>
-  <![endif]-->
-  <script src="/js/jquery-1.12.4.min.js"></script>
+  <?php
+    if (preg_match("/mailbox/i", $_SERVER['REQUEST_URI'])) {
+      $css_minifier->add('/web/css/site/mailbox.css');
+    }
+    if (preg_match("/admin/i", $_SERVER['REQUEST_URI'])) {
+      $css_minifier->add('/web/css/site/admin.css');
+    }
+    if (preg_match("/user/i", $_SERVER['REQUEST_URI'])) {
+      $css_minifier->add('/web/css/site/user.css');
+    }
+    if (preg_match("/edit/i", $_SERVER['REQUEST_URI'])) {
+      $css_minifier->add('/web/css/site/edit.css');
+    }
+    if (preg_match("/quarantine/i", $_SERVER['REQUEST_URI'])) {
+      $css_minifier->add('/web/css/site/quarantine.css');
+    }
+    if (preg_match("/debug/i", $_SERVER['REQUEST_URI'])) {
+      $css_minifier->add('/web/css/site/debug.css');
+    }
+  ?>
+  <style><?=$css_minifier->minify();?></style>
   <?php if (strtolower(trim($DEFAULT_THEME)) != "lumen"): ?>
   <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootswatch/3.3.7/<?= strtolower(trim($DEFAULT_THEME)); ?>/bootstrap.min.css">
-  <?php else: ?>
-  <link rel="stylesheet" href="/css/bootstrap.min.css">
   <?php endif; ?>
-  <link rel="stylesheet" href="/css/breakpoint.min.css">
-  <link rel="stylesheet" href="/css/bootstrap-select.min.css">
-  <link rel="stylesheet" href="/css/bootstrap-slider.min.css">
-  <link rel="stylesheet" href="/css/bootstrap-switch.min.css">
-  <link rel="stylesheet" href="/css/footable.bootstrap.min.css">
-  <link rel="stylesheet" href="/inc/languages.min.css">
-  <link rel="stylesheet" href="/css/mailcow.css">
-  <link rel="stylesheet" href="/css/animate.min.css">
-  <link rel="stylesheet" href="/css/numberedtextarea.min.css">
-  <link rel="stylesheet" href="/css/jquery.jqplot.min.css">
-  <?= (preg_match("/mailbox/i", $_SERVER['REQUEST_URI'])) ? '<link rel="stylesheet" href="/css/mailbox.css">' : null; ?>
-  <?= (preg_match("/admin/i", $_SERVER['REQUEST_URI'])) ? '<link rel="stylesheet" href="/css/admin.css">' : null; ?>
-  <?= (preg_match("/user/i", $_SERVER['REQUEST_URI'])) ? '<link rel="stylesheet" href="/css/user.css">' : null; ?>
-  <?= (preg_match("/edit/i", $_SERVER['REQUEST_URI'])) ? '<link rel="stylesheet" href="/css/edit.css">' : null; ?>
-  <?= (preg_match("/quarantine/i", $_SERVER['REQUEST_URI'])) ? '<link rel="stylesheet" href="/css/quarantine.css">' : null; ?>
-  <?= (preg_match("/debug/i", $_SERVER['REQUEST_URI'])) ? '<link rel="stylesheet" href="/css/debug.css">' : null; ?>
   <link rel="shortcut icon" href="/favicon.png" type="image/png">
   <link rel="icon" href="/favicon.png" type="image/png">
 </head>
@@ -116,12 +114,14 @@
             <?php
             endforeach;
             $app_links = customize('get', 'app_links');
-            foreach ($app_links as $row) {
-              foreach ($row as $key => $val):
-            ?>
+            if ($app_links) {
+              foreach ($app_links as $row) {
+                foreach ($row as $key => $val):
+              ?>
               <li><a href="<?= htmlspecialchars($val); ?>"><?= htmlspecialchars($key); ?></a></li>
-            <?php
-              endforeach;
+              <?php
+                endforeach;
+              }
             }
             ?>
             </ul>
