@@ -3,7 +3,7 @@ function init_db_schema() {
   try {
     global $pdo;
 
-    $db_version = "27012019_1217";
+    $db_version = "04052019_1210";
 
     $stmt = $pdo->query("SHOW TABLES LIKE 'versions'");
     $num_results = count($stmt->fetchAll(PDO::FETCH_ASSOC));
@@ -464,6 +464,7 @@ function init_db_schema() {
           "filters" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "ratelimit" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "spam_policy" => "TINYINT(1) NOT NULL DEFAULT '1'",
+          "unlimited_quota" => "TINYINT(1) NOT NULL DEFAULT '0'",
           "alias_domains" => "TINYINT(1) NOT NULL DEFAULT '0'",
           ),
         "keys" => array(
@@ -501,7 +502,7 @@ function init_db_schema() {
           "timeout2" => "SMALLINT NOT NULL DEFAULT '600'",
           "subscribeall" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "is_running" => "TINYINT(1) NOT NULL DEFAULT '0'",
-          "returned_text" => "MEDIUMTEXT",
+          "returned_text" => "LONGTEXT",
           "last_run" => "TIMESTAMP NULL DEFAULT NULL",
           "created" => "DATETIME(0) NOT NULL DEFAULT NOW(0)",
           "modified" => "DATETIME ON UPDATE CURRENT_TIMESTAMP",

@@ -215,7 +215,8 @@ jQuery(function($){
         .removeAttr("href")
         .attr("title", "Dual login cannot be used twice")
         .tooltip();
-      }
+    }
+    $('.refresh_table').prop("disabled", false);
     heading = ft.$el.parents('.tab-pane').find('.panel-heading')
     var ft_paging = ft.use(FooTable.Paging)
     $(heading).children('.table-lines').text(function(){
@@ -239,8 +240,8 @@ jQuery(function($){
         },
         },
         {"name":"max_quota_for_mbox","title":lang.mailbox_quota,"breakpoints":"xs sm","style":{"width":"125px"}},
-        {"name":"rl","title":"RL","breakpoints":"xs sm md","style":{"maxWidth":"100px","width":"100px"}},
-        {"name":"backupmx","filterable": false,"style":{"maxWidth":"120px","width":"120px"},"title":lang.backup_mx,"breakpoints":"xs sm md"},
+        {"name":"rl","title":"RL","breakpoints":"xs sm md lg","style":{"maxWidth":"100px","width":"100px"}},
+        {"name":"backupmx","filterable": false,"style":{"maxWidth":"120px","width":"120px"},"title":lang.backup_mx,"breakpoints":"xs sm md lg"},
         {"name":"active","filterable": false,"style":{"maxWidth":"80px","width":"80px"},"title":lang.active},
         {"name":"action","filterable": false,"sortable": false,"style":{"text-align":"right","maxWidth":"240px","width":"240px"},"type":"html","title":lang.action,"breakpoints":"xs sm md"}
       ],
@@ -297,7 +298,13 @@ jQuery(function($){
         "enabled": true
       },
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'domain_table');
+        },
+        "after.ft.filtering": function(e, ft){
           table_mailbox_ready(ft, 'domain_table');
         }
       }
@@ -308,18 +315,19 @@ jQuery(function($){
       "columns": [
         {"name":"chkbox","title":"","style":{"maxWidth":"60px","width":"60px"},"filterable": false,"sortable": false,"type":"html"},
         {"sorted": true,"name":"username","style":{"word-break":"break-all","min-width":"120px"},"title":lang.username},
-        {"name":"name","title":lang.fname,"style":{"word-break":"break-all","min-width":"120px"},"breakpoints":"xs sm"},
-        {"name":"domain","title":lang.domain,"breakpoints":"xs sm"},
+        {"name":"name","title":lang.fname,"style":{"word-break":"break-all","min-width":"120px"},"breakpoints":"xs sm md lg"},
+        {"name":"domain","title":lang.domain,"breakpoints":"xs sm md lg"},
         {"name":"quota","style":{"whiteSpace":"nowrap"},"title":lang.domain_quota,"formatter": function(value){
           res = value.split("/");
-          return humanFileSize(res[0]) + " / " + humanFileSize(res[1]);
+          var of_q = (res[1] == 0 ? "∞" : humanFileSize(res[1]));
+          return humanFileSize(res[0]) + " / " + of_q;
         },
         "sortValue": function(value){
           res = value.split("/");
           return Number(res[0]);
         },
         },
-        {"name":"spam_aliases","filterable": false,"title":lang.spam_aliases,"breakpoints":"xs sm md"},
+        {"name":"spam_aliases","filterable": false,"title":lang.spam_aliases,"breakpoints":"all"},
         {"name":"tls_enforce_in","filterable": false,"title":lang.tls_enforce_in,"breakpoints":"all"},
         {"name":"tls_enforce_out","filterable": false,"title":lang.tls_enforce_out,"breakpoints":"all"},
         {"name":"quarantine_notification","filterable": false,"title":lang.quarantine_notification,"breakpoints":"all"},
@@ -328,9 +336,9 @@ jQuery(function($){
         },
         },
         {"name":"messages","filterable": false,"title":lang.msg_num,"breakpoints":"xs sm md"},
-        {"name":"rl","title":"RL","breakpoints":"xs sm md","style":{"width":"125px"}},
+        {"name":"rl","title":"RL","breakpoints":"all","style":{"width":"125px"}},
         {"name":"active","filterable": false,"title":lang.active},
-        {"name":"action","filterable": false,"sortable": false,"style":{"min-width":"250px","text-align":"right"},"type":"html","title":lang.action,"breakpoints":"xs sm md"}
+        {"name":"action","filterable": false,"sortable": false,"style":{"min-width":"290px","text-align":"right"},"type":"html","title":lang.action,"breakpoints":"xs sm md"}
       ],
       "empty": lang.empty,
       "rows": $.ajax({
@@ -367,8 +375,11 @@ jQuery(function($){
             item.action = '<div class="btn-group">' +
               '<a href="/edit/mailbox/' + encodeURIComponent(item.username) + '" class="btn btn-xs btn-default"><span class="glyphicon glyphicon-pencil"></span> ' + lang.edit + '</a>' +
               '<a href="#" data-action="delete_selected" data-id="single-mailbox" data-api-url="delete/mailbox" data-item="' + encodeURIComponent(item.username) + '" class="btn btn-xs btn-danger"><span class="glyphicon glyphicon-trash"></span> ' + lang.remove + '</a>' +
-              '<a href="/index.php?duallogin=' + encodeURIComponent(item.username) + '" class="login_as btn btn-xs btn-success"><span class="glyphicon glyphicon-user"></span> Login</a>' +
-              '</div>';
+              '<a href="/index.php?duallogin=' + encodeURIComponent(item.username) + '" class="login_as btn btn-xs btn-success"><span class="glyphicon glyphicon-user"></span> Login</a>';
+              if (ALLOW_ADMIN_EMAIL_LOGIN) {
+                item.action += '<a href="/sogo-auth.php?login=' + encodeURIComponent(item.username) + '" class="login_as btn btn-xs btn-primary" target="_blank"><span class="glyphicon glyphicon-envelope"></span> SOGo</a>';
+              }
+              item.action += '</div>';
             }
             else {
             item.action = '<div class="btn-group">' +
@@ -406,7 +417,13 @@ jQuery(function($){
         "enabled": true
       },
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'mailbox_table');
+        },
+        "after.ft.filtering": function(e, ft){
           table_mailbox_ready(ft, 'mailbox_table');
         }
       }
@@ -471,7 +488,13 @@ jQuery(function($){
         "enabled": true
       },
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'resource_table');
+        },
+        "after.ft.filtering": function(e, ft){
           table_mailbox_ready(ft, 'resource_table');
         }
       }
@@ -533,7 +556,13 @@ jQuery(function($){
         "enabled": true
       },
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'bcc_table');
+        },
+        "after.ft.filtering": function(e, ft){
           table_mailbox_ready(ft, 'bcc_table');
         }
       }
@@ -590,7 +619,13 @@ jQuery(function($){
         "enabled": true
       },
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'recipient_map_table');
+        },
+        "after.ft.filtering": function(e, ft){
           table_mailbox_ready(ft, 'recipient_map_table');
         }
       }
@@ -653,7 +688,13 @@ jQuery(function($){
         "enabled": true
       },
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'tls_policy_table');
+        },
+        "after.ft.filtering": function(e, ft){
           table_mailbox_ready(ft, 'tls_policy_table');
         }
       }
@@ -714,7 +755,13 @@ jQuery(function($){
         "enabled": true
       },
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'transport_maps_table');
+        },
+        "after.ft.filtering": function(e, ft){
           table_mailbox_ready(ft, 'transport_maps_table');
         }
       }
@@ -804,7 +851,13 @@ jQuery(function($){
         "enabled": true
       },
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'alias_table');
+        },
+        "after.ft.filtering": function(e, ft){
           table_mailbox_ready(ft, 'alias_table');
         }
       }
@@ -858,7 +911,13 @@ jQuery(function($){
         "enabled": true
       },
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'aliasdomain_table');
+        },
+        "after.ft.filtering": function(e, ft){
           table_mailbox_ready(ft, 'aliasdomain_table');
         }
       }
@@ -933,7 +992,13 @@ jQuery(function($){
         "enabled": true
       },
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'sync_job_table');
+        },
+        "after.ft.filtering": function(e, ft){
           table_mailbox_ready(ft, 'sync_job_table');
         }
       }
@@ -996,7 +1061,13 @@ jQuery(function($){
         "enabled": true
       },
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
+          table_mailbox_ready(ft, 'filter_table');
+        },
+        "after.ft.filtering": function(e, ft){
           table_mailbox_ready(ft, 'filter_table');
         }
       }

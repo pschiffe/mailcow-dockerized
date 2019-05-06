@@ -5,6 +5,21 @@ exec 5>&1
 # Thanks to https://github.com/cvmiller -> https://github.com/cvmiller/expand6
 source /srv/expand6.sh
 
+# Skipping IP check when we like to live dangerously
+if [[ "${SKIP_IP_CHECK}" =~ ^([yY][eE][sS]|[yY])+$ ]]; then
+  SKIP_IP_CHECK=y
+fi
+
+# Skipping HTTP check when we like to live dangerously
+if [[ "${SKIP_HTTP_VERIFICATION}" =~ ^([yY][eE][sS]|[yY])+$ ]]; then
+  SKIP_HTTP_VERIFICATION=y
+fi
+
+# Request certificate for MAILCOW_HOSTNAME ony
+if [[ "${ONLY_MAILCOW_HOSTNAME}" =~ ^([yY][eE][sS]|[yY])+$ ]]; then
+  ONLY_MAILCOW_HOSTNAME=y
+fi
+
 log_f() {
   if [[ ${2} == "no_nl" ]]; then
     echo -n "$(date) - ${1}"
@@ -120,7 +135,10 @@ verify_challenge_path(){
   # verify_challenge_path URL 4|6
   RAND_FILE=${RANDOM}${RANDOM}${RANDOM}
   touch /var/www/acme/${RAND_FILE}
-  if [[ "$(curl -${2} http://${1}/.well-known/acme-challenge/${RAND_FILE} --write-out %{http_code} --silent --output /dev/null)" =~ ^(2|3)  ]]; then
+  if [[ ${SKIP_HTTP_VERIFICATION} == "y" ]]; then
+    echo '(skipping check, returning 0)'
+    return 0
+  elif [[ "$(curl -${2} http://${1}/.well-known/acme-challenge/${RAND_FILE} --write-out %{http_code} --silent --output /dev/null)" =~ ^(2|3)  ]]; then
     rm /var/www/acme/${RAND_FILE}
     return 0
   else
@@ -131,7 +149,7 @@ verify_challenge_path(){
 
 [[ ! -f ${ACME_BASE}/dhparams.pem ]] && cp ${SSL_EXAMPLE}/dhparams.pem ${ACME_BASE}/dhparams.pem
 
-if [[ -f ${ACME_BASE}/cert.pem ]] && [[ -f ${ACME_BASE}/key.pem ]]; then
+if [[ -f ${ACME_BASE}/cert.pem ]] && [[ -f ${ACME_BASE}/key.pem ]] && [[ $(stat -c%s ${ACME_BASE}/cert.pem) != 0 ]]; then
   ISSUER=$(openssl x509 -in ${ACME_BASE}/cert.pem -noout -issuer)
   if [[ ${ISSUER} != *"Let's Encrypt"* && ${ISSUER} != *"mailcow"* && ${ISSUER} != *"Fake LE Intermediate"* ]]; then
     log_f "Found certificate with issuer other than mailcow snake-oil CA and Let's Encrypt, skipping ACME client..."
@@ -199,11 +217,6 @@ while true; do
   chmod 600 ${ACME_BASE}/acme/key.pem
   chmod 600 ${ACME_BASE}/acme/account.pem
 
-  # Skipping IP check when we like to live dangerously
-  if [[ "${SKIP_IP_CHECK}" =~ ^([yY][eE][sS]|[yY])+$ ]]; then
-    SKIP_IP_CHECK=y
-  fi
-
   # Cleaning up and init validation arrays
   unset SQL_DOMAIN_ARR
   unset VALIDATED_CONFIG_DOMAINS
@@ -258,9 +271,10 @@ while true; do
     SQL_DOMAIN_ARR+=("${domains}")
   done < <(mysql --socket=/var/run/mysqld/mysqld.sock -u ${DBUSER} -p${DBPASS} ${DBNAME} -e "SELECT domain FROM domain WHERE backupmx=0" -Bs)
 
+  if [[ ${ONLY_MAILCOW_HOSTNAME} != "y" ]]; then
   for SQL_DOMAIN in "${SQL_DOMAIN_ARR[@]}"; do
     for SUBDOMAIN in "${ADDITIONAL_WC_ARR[@]}"; do
-      if [[  "${SUBDOMAIN}.${SQL_DOMAIN}" != "${MAILCOW_HOSTNAME}" ]]; then
+      if [[ "${SUBDOMAIN}.${SQL_DOMAIN}" != "${MAILCOW_HOSTNAME}" ]]; then
         A_SUBDOMAIN=$(dig A ${SUBDOMAIN}.${SQL_DOMAIN} +short | tail -n 1)
         AAAA_SUBDOMAIN=$(dig AAAA ${SUBDOMAIN}.${SQL_DOMAIN} +short | tail -n 1)
         # Check if CNAME without v6 enabled target
@@ -297,6 +311,7 @@ while true; do
       fi
     done
   done
+  fi
 
   A_MAILCOW_HOSTNAME=$(dig A ${MAILCOW_HOSTNAME} +short | tail -n 1)
   AAAA_MAILCOW_HOSTNAME=$(dig AAAA ${MAILCOW_HOSTNAME} +short | tail -n 1)
@@ -332,6 +347,7 @@ while true; do
     log_f "No A or AAAA record found for hostname ${MAILCOW_HOSTNAME}"
   fi
 
+  if [[ ${ONLY_MAILCOW_HOSTNAME} != "y" ]]; then
   for SAN in "${ADDITIONAL_SAN_ARR[@]}"; do
     # Skip on CAA errors for SAN
     SAN_PARENT_DOMAIN=$(echo ${SAN} | cut -d. -f2-)
@@ -381,6 +397,7 @@ while true; do
       log_f "No A or AAAA record found for hostname ${SAN}"
     fi
   done
+  fi
 
   # Unique elements
   ALL_VALIDATED=(${VALIDATED_MAILCOW_HOSTNAME} $(echo ${VALIDATED_CONFIG_DOMAINS[*]} ${ADDITIONAL_VALIDATED_SAN[*]} | xargs -n1 | sort -u | xargs))
@@ -479,6 +496,7 @@ while true; do
       ACME_RESPONSE_B64=$(echo "${ACME_RESPONSE}" | openssl enc -e -A -base64)
       log_f "${ACME_RESPONSE_B64}" redis_only b64
       log_f "Retrying in 30 minutes..."
+      redis-cli -h redis SET ACME_FAIL_TIME "$(date +%s)"
       sleep 30m
       exec $(readlink -f "$0")
       ;;

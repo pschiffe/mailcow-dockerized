@@ -26,7 +26,7 @@ fi
 
 echo "Press enter to confirm the detected value '[value]' where applicable or enter a custom value."
 while [ -z "${MAILCOW_HOSTNAME}" ]; do
-  read -p "Hostname (FQDN): " -e MAILCOW_HOSTNAME
+  read -p "Mail server hostname (FQDN) - this is not your mail domain, but your mail servers hostname: " -e MAILCOW_HOSTNAME
   DOTS=${MAILCOW_HOSTNAME//[^.]};
   if [ ${#DOTS} -lt 2 ] && [ ! -z ${MAILCOW_HOSTNAME} ]; then
     echo "${MAILCOW_HOSTNAME} is not a FQDN"
@@ -186,6 +186,10 @@ SKIP_LETS_ENCRYPT=n
 
 SKIP_IP_CHECK=n
 
+# Skip HTTP verification in ACME container - y/n
+
+SKIP_HTTP_VERIFICATION=n
+
 # Skip ClamAV (clamd-mailcow) anti-virus (Rspamd will auto-detect a missing ClamAV container) - y/n
 
 SKIP_CLAMD=${SKIP_CLAMD}
@@ -200,6 +204,10 @@ SOLR_HEAP=1024
 # Enable watchdog (watchdog-mailcow) to restart unhealthy containers (experimental)
 
 USE_WATCHDOG=n
+
+# Allow admins to log into SOGo as email user (without any password)
+
+ALLOW_ADMIN_EMAIL_LOGIN=n
 
 # Send notifications by mail (no DKIM signature, sent from watchdog@MAILCOW_HOSTNAME)
 # Can by multiple rcpts, NO quotation marks
@@ -227,12 +235,12 @@ IPV6_NETWORK=fd4d:6169:6c63:6f77::/64
 
 #SNAT6_TO_SOURCE=
 
-# Create or override API key for web uI
+# Create or override API key for web ui
 # You _must_ define API_ALLOW_FROM, which is a comma separated list of IPs
 # API_KEY allowed chars: a-z, A-Z, 0-9, -
 
 #API_KEY=
-#API_ALLOW_FROM=127.0.0.1,1.2.3.4
+#API_ALLOW_FROM=172.22.1.1,127.0.0.1
 
 # mail_home is ~/Maildir
 MAILDIR_SUB=Maildir
