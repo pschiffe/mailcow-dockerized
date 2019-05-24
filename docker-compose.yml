@@ -43,6 +43,7 @@ services:
 
     redis-mailcow:
       image: redis:5-alpine
+      command: redis-server --save 10800 1
       volumes:
         - redis-vol-1:/data/:z
       restart: always
