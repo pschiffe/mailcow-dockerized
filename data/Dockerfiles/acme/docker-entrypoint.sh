@@ -300,7 +300,7 @@ while true; do
               log_f "Confirmed A record ${A_SUBDOMAIN}"
               VALIDATED_CONFIG_DOMAINS+=("${SUBDOMAIN}.${SQL_DOMAIN}")
             else
-              log_f "Confirmed AAAA record ${A_SUBDOMAIN}, but HTTP validation failed"
+              log_f "Confirmed A record ${A_SUBDOMAIN}, but HTTP validation failed"
             fi
           else
             log_f "Cannot match your IP ${IPV4} against hostname ${SUBDOMAIN}.${SQL_DOMAIN} (${A_SUBDOMAIN})"
@@ -404,6 +404,7 @@ while true; do
   if [[ -z ${ALL_VALIDATED[*]} ]]; then
     log_f "Cannot validate hostnames, skipping Let's Encrypt for 1 hour."
     log_f "Use SKIP_LETS_ENCRYPT=y in mailcow.conf to skip it permanently."
+    redis-cli -h redis SET ACME_FAIL_TIME "$(date +%s)"
     sleep 1h
     exec $(readlink -f "$0")
   fi
@@ -428,8 +429,8 @@ while true; do
 
   if [[ ${SAN_CHANGE} == 0 ]]; then
     # Certificate did not change but could be due for renewal (4 weeks)
-    if ! openssl x509 -checkend 1209600 -noout -in ${ACME_BASE}/cert.pem; then
-      log_f "Certificate is due for renewal (< 2 weeks)"
+    if ! openssl x509 -checkend 2592000 -noout -in ${ACME_BASE}/cert.pem; then
+      log_f "Certificate is due for renewal (< 30 days)"
     else
       log_f "Certificate validation done, neither changed nor due for renewal, sleeping for another day."
       sleep 1d
