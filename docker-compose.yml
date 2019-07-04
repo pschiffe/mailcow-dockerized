@@ -23,8 +23,6 @@ services:
         - mysql-vol-1:/var/lib/mysql/:z
         - mysql-socket-vol-1:/var/run/mysqld/:z
         - ./data/conf/mysql/:/etc/mysql/conf.d/:ro,z
-      ports:
-        - "3306:3306"
       environment:
         - TZ=${TZ}
         - MYSQL_ROOT_PASSWORD=${DBROOT}
@@ -211,7 +209,6 @@ services:
         - "${POP_PORT:-110}:110"
         - "${POPS_PORT:-995}:995"
         - "${SIEVE_PORT:-4190}:4190"
-        - "24242:24242"
       restart: always
       tty: true
       ulimits:
@@ -261,8 +258,6 @@ services:
 
     memcached-mailcow:
       image: memcached:alpine
-      ports:
-        - "11211:11211"
       environment:
         - TZ=${TZ}
       restart: always
