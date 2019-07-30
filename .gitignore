@@ -35,4 +35,4 @@ data/gogs/
 data/conf/sogo/plist_ldap
 .github/
 docker-compose.override.yml
-.rspamd-pw
+refresh_images.sh
