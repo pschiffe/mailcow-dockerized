@@ -76,7 +76,7 @@ function mail_error() {
       return 1
     fi
     [ -f "/tmp/${1}" ] && BODY="/tmp/${1}"
-    ./smtp-cli --missing-modules-ok \
+    timeout 10s ./smtp-cli --missing-modules-ok \
       --charset=UTF-8 \
       --subject="${SUBJECT}" \
       --body-plain="${BODY}" \
@@ -245,7 +245,7 @@ postfix_checks() {
     touch /tmp/postfix-mailcow; echo "$(tail -50 /tmp/postfix-mailcow)" > /tmp/postfix-mailcow
     host_ip=$(get_container_ip postfix-mailcow)
     err_c_cur=${err_count}
-    /usr/lib/nagios/plugins/check_smtp -4 -H ${host_ip} -p 589 -f "watchdog@invalid" -C "RCPT TO:null@localhost" -C DATA -C . -R 250 2>> /tmp/postfix-mailcow 1>&2; err_count=$(( ${err_count} + $? ))
+    /usr/lib/nagios/plugins/check_smtp -4 -H ${host_ip} -p 589 -f "watchdog@invalid" -C "RCPT TO:watchdog@localhost" -C DATA -C . -R 250 2>> /tmp/postfix-mailcow 1>&2; err_count=$(( ${err_count} + $? ))
     /usr/lib/nagios/plugins/check_smtp -4 -H ${host_ip} -p 589 -S 2>> /tmp/postfix-mailcow 1>&2; err_count=$(( ${err_count} + $? ))
     [ ${err_c_cur} -eq ${err_count} ] && [ ! $((${err_count} - 1)) -lt 0 ] && err_count=$((${err_count} - 1)) diff_c=1
     [ ${err_c_cur} -ne ${err_count} ] && diff_c=$(( ${err_c_cur} - ${err_count} ))
@@ -264,7 +264,7 @@ postfix_checks() {
 clamd_checks() {
   err_count=0
   diff_c=0
-  THRESHOLD=10
+  THRESHOLD=15
   # Reduce error count by 2 after restarting an unhealthy container
   trap "[ ${err_count} -gt 1 ] && err_count=$(( ${err_count} - 2 ))" USR1
   while [ ${err_count} -lt ${THRESHOLD} ]; do
@@ -384,7 +384,10 @@ fail2ban_checks() {
     array_diff F2B_RES F2B_LOG_STATUS F2B_LOG_STATUS_PREV
     if [[ ! -z "${F2B_RES}" ]]; then
       err_count=$(( ${err_count} + 1 ))
-      echo -n "${F2B_RES[@]}" | redis-cli -x -h redis-mailcow SET F2B_RES > /dev/null
+      echo -n "${F2B_RES[@]}" | tr -cd "[a-fA-F0-9.:/] " | timeout 3s redis-cli -x -h redis-mailcow SET F2B_RES > /dev/null
+      if [ $? -ne 0 ]; then
+         redis-cli -x -h redis-mailcow DEL F2B_RES
+      fi
     fi
     [ ${err_c_cur} -eq ${err_count} ] && [ ! $((${err_count} - 1)) -lt 0 ] && err_count=$((${err_count} - 1)) diff_c=1
     [ ${err_c_cur} -ne ${err_count} ] && diff_c=$(( ${err_c_cur} - ${err_count} ))
@@ -526,9 +529,12 @@ olefy_checks() {
 }
 
 # Notify about start
-[[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]] && mail_error "watchdog-mailcow" "Watchdog started monitoring mailcow."
+if [[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]]; then
+  mail_error "watchdog-mailcow" "Watchdog started monitoring mailcow."
+fi
 
 # Create watchdog agents
+
 (
 while true; do
   if ! nginx_checks; then
@@ -537,7 +543,9 @@ while true; do
   fi
 done
 ) &
-BACKGROUND_TASKS+=($!)
+PID=$!
+echo "Spawned nginx_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 
 (
 while true; do
@@ -547,7 +555,9 @@ while true; do
   fi
 done
 ) &
-BACKGROUND_TASKS+=($!)
+PID=$!
+echo "Spawned mysql_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 
 (
 while true; do
@@ -557,7 +567,9 @@ while true; do
   fi
 done
 ) &
-BACKGROUND_TASKS+=($!)
+PID=$!
+echo "Spawned phpfpm_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 
 (
 while true; do
@@ -567,7 +579,9 @@ while true; do
   fi
 done
 ) &
-BACKGROUND_TASKS+=($!)
+PID=$!
+echo "Spawned sogo_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 
 if [ ${CHECK_UNBOUND} -eq 1 ]; then
 (
@@ -578,7 +592,9 @@ while true; do
   fi
 done
 ) &
-BACKGROUND_TASKS+=($!)
+PID=$!
+echo "Spawned unbound_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 fi
 
 if [[ "${SKIP_CLAMD}" =~ ^([nN][oO]|[nN])+$ ]]; then
@@ -590,7 +606,9 @@ while true; do
   fi
 done
 ) &
-BACKGROUND_TASKS+=($!)
+PID=$!
+echo "Spawned clamd_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 fi
 
 (
@@ -601,7 +619,9 @@ while true; do
   fi
 done
 ) &
-BACKGROUND_TASKS+=($!)
+PID=$!
+echo "Spawned postfix_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 
 (
 while true; do
@@ -611,7 +631,9 @@ while true; do
   fi
 done
 ) &
-BACKGROUND_TASKS+=($!)
+PID=$!
+echo "Spawned dovecot_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 
 (
 while true; do
@@ -621,7 +643,9 @@ while true; do
   fi
 done
 ) &
-BACKGROUND_TASKS+=($!)
+PID=$!
+echo "Spawned rspamd_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 
 (
 while true; do
@@ -631,7 +655,9 @@ while true; do
   fi
 done
 ) &
-BACKGROUND_TASKS+=($!)
+PID=$!
+echo "Spawned ratelimit_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 
 (
 while true; do
@@ -641,17 +667,21 @@ while true; do
   fi
 done
 ) &
-BACKGROUND_TASKS+=($!)
+PID=$!
+echo "Spawned fail2ban_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 
-(
-while true; do
-  if ! olefy_checks; then
-    log_msg "Olefy hit error limit"
-    echo olefy-mailcow > /tmp/com_pipe
-  fi
-done
-) &
-BACKGROUND_TASKS+=($!)
+#(
+#while true; do
+#  if ! olefy_checks; then
+#    log_msg "Olefy hit error limit"
+#    echo olefy-mailcow > /tmp/com_pipe
+#  fi
+#done
+#) &
+#PID=$!
+#echo "Spawned olefy_checks with PID ${PID}"
+#BACKGROUND_TASKS+=(${PID})
 
 (
 while true; do
@@ -661,7 +691,9 @@ while true; do
   fi
 done
 ) &
-BACKGROUND_TASKS+=($!)
+PID=$!
+echo "Spawned acme_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 
 (
 while true; do
@@ -671,7 +703,9 @@ while true; do
   fi
 done
 ) &
-BACKGROUND_TASKS+=($!)
+PID=$!
+echo "Spawned ipv6nat_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 
 # Monitor watchdog agents, stop script when agents fails and wait for respawn by Docker (restart:always:n)
 (
@@ -717,16 +751,17 @@ while true; do
     log_msg "acme-mailcow did not complete successfully"
     [[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]] && mail_error "${com_pipe_answer}" "Please check acme-mailcow for further information."
   elif [[ ${com_pipe_answer} == "fail2ban" ]]; then
-    F2B_RES=($(redis-cli -h redis-mailcow --raw GET F2B_RES))
-    redis-cli -h redis-mailcow DEL F2B_RES > /dev/null
-    host=
-    for host in "${F2B_RES[@]}"; do
-      log_msg "Banned ${host}"
-      rm /tmp/fail2ban 2> /dev/null
-      timeout 2s whois ${host} > /tmp/fail2ban
-      sleep 2.5
-      [[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]] && [[ ${WATCHDOG_NOTIFY_BAN} =~ ^([yY][eE][sS]|[yY])+$ ]] && mail_error "${com_pipe_answer}" "IP ban: ${host}"
-    done
+    F2B_RES=($(timeout 4s redis-cli -h redis-mailcow --raw GET F2B_RES 2> /dev/null))
+    if [[ ! -z "${F2B_RES}" ]]; then
+      redis-cli -h redis-mailcow DEL F2B_RES > /dev/null
+      host=
+      for host in "${F2B_RES[@]}"; do
+        log_msg "Banned ${host}"
+        rm /tmp/fail2ban 2> /dev/null
+        timeout 2s whois "${host}" > /tmp/fail2ban
+        [[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]] && [[ ${WATCHDOG_NOTIFY_BAN} =~ ^([yY][eE][sS]|[yY])+$ ]] && mail_error "${com_pipe_answer}" "IP ban: ${host}"
+      done
+    fi
   elif [[ ${com_pipe_answer} =~ .+-mailcow ]]; then
     kill -STOP ${BACKGROUND_TASKS[*]}
     sleep 10
