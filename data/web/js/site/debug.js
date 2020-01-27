@@ -18,8 +18,9 @@ jQuery(function($){
     eval(draw_table + '()');
   });
   function table_log_ready(ft, name) {
-    heading = ft.$el.parents('.tab-pane').find('.panel-heading')
+    heading = ft.$el.parents('.panel').find('.panel-heading')
     var ft_paging = ft.use(FooTable.Paging)
+    $('.refresh_table').prop("disabled", false);
     $(heading).children('.table-lines').text(function(){
       return ft_paging.totalRows;
     })
@@ -56,6 +57,9 @@ jQuery(function($){
       "filtering": {"enabled": true,"delay": 1200,"position": "left","placeholder": lang.filter_table},
       "sorting": {"enabled": true},
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
           table_log_ready(ft, 'autodiscover_logs');
         },
@@ -88,6 +92,9 @@ jQuery(function($){
       "filtering": {"enabled": true,"delay": 1200,"position": "left","placeholder": lang.filter_table},
       "sorting": {"enabled": true},
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
           table_log_ready(ft, 'postfix_logs');
         },
@@ -121,6 +128,9 @@ jQuery(function($){
       "filtering": {"enabled": true,"delay": 1200,"position": "left","connectors": false,"placeholder": lang.filter_table},
       "sorting": {"enabled": true},
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
           table_log_ready(ft, 'postfix_logs');
         },
@@ -155,6 +165,9 @@ jQuery(function($){
       "filtering": {"enabled": true,"delay": 1200,"position": "left","connectors": false,"placeholder": lang.filter_table},
       "sorting": {"enabled": true},
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
           table_log_ready(ft, 'api_logs');
         },
@@ -197,6 +210,9 @@ jQuery(function($){
       "filtering": {"enabled": true,"delay": 1200,"position": "left","connectors": false,"placeholder": lang.filter_table},
       "sorting": {"enabled": true},
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
           table_log_ready(ft, 'rl_logs');
         },
@@ -234,6 +250,9 @@ jQuery(function($){
       "filtering": {"enabled": true,"delay": 1200,"position": "left","connectors": false,"placeholder": lang.filter_table},
       "sorting": {"enabled": true},
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
           table_log_ready(ft, 'ui_logs');
         },
@@ -265,6 +284,9 @@ jQuery(function($){
       "filtering": {"enabled": true,"delay": 1200,"position": "left","connectors": false,"placeholder": lang.filter_table},
       "sorting": {"enabled": true},
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
           table_log_ready(ft, 'acme_logs');
         },
@@ -297,6 +319,9 @@ jQuery(function($){
       "filtering": {"enabled": true,"delay": 1200,"position": "left","connectors": false,"placeholder": lang.filter_table},
       "sorting": {"enabled": true},
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
           table_log_ready(ft, 'netfilter_logs');
         },
@@ -329,6 +354,9 @@ jQuery(function($){
       "filtering": {"enabled": true,"delay": 1200,"position": "left","connectors": false,"placeholder": lang.filter_table},
       "sorting": {"enabled": true},
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
           table_log_ready(ft, 'sogo_logs');
         },
@@ -361,6 +389,9 @@ jQuery(function($){
       "filtering": {"enabled": true,"delay": 1200,"position": "left","connectors": false,"placeholder": lang.filter_table},
       "sorting": {"enabled": true},
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
           table_log_ready(ft, 'dovecot_logs');
         },
@@ -373,42 +404,50 @@ jQuery(function($){
   function rspamd_pie_graph() {
     $.ajax({
       url: '/api/v1/get/rspamd/actions',
-      success: function(graphdata){
-        graphdata.unshift(['Type', 'Count']);
-        google.charts.load('current', {'packages':['corechart']});
-        google.charts.setOnLoadCallback(drawChart);
+      success: function(data){
 
-        function drawChart() {
+        var total = 0;
+        $(data).map(function(){total += this[1];});
+        var labels = $.makeArray($(data).map(function(){return this[0] + ' ' + Math.round(this[1]/total * 100) + '%';}));
+        var values = $.makeArray($(data).map(function(){return this[1];}));
 
-          var data = google.visualization.arrayToDataTable(graphdata);
-          var body_font_color = $('body').css("color");
-          var options = {
-            is3D: true,
-            sliceVisibilityThreshold: 0,
-            pieSliceText: 'percentage',
-            backgroundColor: { fill:'transparent' },
-            legend: {textStyle: {color: body_font_color}},
-            chartArea: {
-              left: 0,
-              right: 0,
-              top: 20,
-              width: '100%',
-              height: '100%'
-            },
-      
-            slices: {
-              0: { color: '#DC3023' },
-              1: { color: '#59ABE3' },
-              2: { color: '#FFA400' },
-              3: { color: '#FFA400' },
-              4: { color: '#26A65B' }
+        var graphdata = {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: ['#DC3023', '#59ABE3', '#FFA400', '#FFA400', '#26A65B']
+          }]
+        };
+
+        var options = {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            datalabels: {
+              color: '#FFF',
+              font: {
+                weight: 'bold'
+              },
+              display: function(context) {
+                return context.dataset.data[context.dataIndex] !== 0;
+              },
+              formatter: function(value, context) {
+                return Math.round(value/total*100) + '%';
+              }
             }
-          };
+          }
+        };
 
-          var chart = new google.visualization.PieChart(document.getElementById('rspamd_donut'));
+        var chartcanvas = document.getElementById('rspamd_donut');
 
-          chart.draw(data, options);
-        }
+        Chart.plugins.register('ChartDataLabels');
+
+        var chart = new Chart(chartcanvas.getContext("2d"), {
+          plugins: [ChartDataLabels],
+          type: 'doughnut',
+          data: graphdata,
+          options: options
+        });
       }
     });
   }
@@ -444,9 +483,12 @@ jQuery(function($){
       "filtering": {"enabled": true,"delay": 1200,"position": "left","connectors": false,"placeholder": lang.filter_table},
       "sorting": {"enabled": true},
       "on": {
+        "destroy.ft.table": function(e, ft){
+          $('.refresh_table').attr('disabled', 'true');
+        },
         "ready.ft.table": function(e, ft){
           table_log_ready(ft, 'rspamd_history');
-          heading = ft.$el.parents('.tab-pane').find('.panel-heading')
+          heading = ft.$el.parents('.panel').find('.panel-heading')
           $(heading).children('.table-lines').text(function(){
             var ft_paging = ft.use(FooTable.Paging)
             return ft_paging.totalRows;
@@ -468,30 +510,38 @@ jQuery(function($){
       else {
         item.rcpt = item.rcpt_smtp.join(", ");
       }
-      Object.keys(item.symbols).map(function(key) {
+      item.symbols = Object.keys(item.symbols).sort(function (a, b) {
+        if (item.symbols[a].score === 0) return 1
+        if (item.symbols[b].score === 0) return -1
+        if (item.symbols[b].score < 0 && item.symbols[a].score < 0) {
+          return item.symbols[a].score - item.symbols[b].score
+        }
+        if (item.symbols[b].score > 0 && item.symbols[a].score > 0) {
+          return item.symbols[b].score - item.symbols[a].score
+        }
+        return item.symbols[b].score - item.symbols[a].score
+      }).map(function(key) {
         var sym = item.symbols[key];
-        if (sym.score <= 0) {
+        if (sym.score < 0) {
           sym.score_formatted = '(<span class="text-success"><b>' + sym.score + '</b></span>)'
+        }
+        else if (sym.score === 0) {
+          sym.score_formatted = '(<span><b>' + sym.score + '</b></span>)'
         }
         else {
           sym.score_formatted = '(<span class="text-danger"><b>' + sym.score + '</b></span>)'
         }
         var str = '<strong>' + key + '</strong> ' + sym.score_formatted;
         if (sym.options) {
-          str += ' [' + sym.options.join(",") + "]";
+          str += ' [' + sym.options.join(", ") + "]";
         }
-        item.symbols[key].str = str;
-      });
+        return str
+      }).join('<br>\n');
       item.subject = escapeHtml(item.subject);
-      item.symbols = Object.keys(item.symbols).
-      map(function(key) {
-        return item.symbols[key];
-      }).sort(function(e1, e2) {
-        return Math.abs(e1.score) < Math.abs(e2.score);
-      }).map(function(e) {
-        return e.str;
-      }).join("<br>\n");
-      var scan_time = item.time_real.toFixed(3) + ' / ' + item.time_virtual.toFixed(3);
+      var scan_time = item.time_real.toFixed(3);
+      if (item.time_virtual) {
+        scan_time += ' / ' + item.time_virtual.toFixed(3);
+      }
       item.scan_time = {
         "options": {
           "sortValue": item.time_real
@@ -625,7 +675,7 @@ jQuery(function($){
       return;
     }
     if (ft = FooTable.get($('#' + log_table))) {
-      var heading = ft.$el.parents('.tab-pane').find('.panel-heading')
+      var heading = ft.$el.parents('.panel').find('.panel-heading')
       var ft_paging = ft.use(FooTable.Paging)
       var load_rows = (ft_paging.totalRows + 1) + '-' + (ft_paging.totalRows + new_nrows)
       $.get('/api/v1/get/logs/' + log_url + '/' + load_rows).then(function(data){
@@ -650,13 +700,6 @@ jQuery(function($){
   draw_ui_logs();
   draw_netfilter_logs();
   draw_rspamd_history();
-  $(window).resize(function () {
-      var timer;
-      clearTimeout(timer);
-      timer = setTimeout(function () {
-        rspamd_pie_graph();
-      }, 500);
-  });
   $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
     var target = $(e.target).attr("href");
     if ((target == '#tab-rspamd-history')) {

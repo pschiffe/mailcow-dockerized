@@ -386,6 +386,12 @@ function verify_hash($hash, $password) {
       return true;
     }
   }
+  elseif (preg_match('/^{PLAIN-MD5}/i', $hash)) {
+    $hash = preg_replace('/^{PLAIN-MD5}/i', '', $hash);
+    if (md5($password) == $hash) {
+      return true;
+    }
+  }
   elseif (preg_match('/^{SHA512-CRYPT}/i', $hash)) {
     // Remove tag if any
     $hash = preg_replace('/^{SHA512-CRYPT}/i', '', $hash);
@@ -1062,9 +1068,10 @@ function verify_tfa_login($username, $token) {
   case "u2f":
     try {
       $reg = $u2f->doAuthenticate(json_decode($_SESSION['authReq']), get_u2f_registrations($username), json_decode($token));
-      $stmt = $pdo->prepare("UPDATE `tfa` SET `counter` = ? WHERE `id` = ?");
-      $stmt->execute(array($reg->counter, $reg->id));
-      $_SESSION['tfa_id'] = $reg->id;
+      $stmt = $pdo->prepare("SELECT `id` FROM `tfa` WHERE `keyHandle` = ?");
+      $stmt->execute(array($reg->keyHandle));
+      $row_key_id = $stmt->fetch(PDO::FETCH_ASSOC);
+      $_SESSION['tfa_id'] = $row_key_id['id'];
       $_SESSION['authReq'] = null;
       $_SESSION['return'][] =  array(
         'type' => 'success',
@@ -1253,17 +1260,20 @@ function license($action, $data = null) {
           $_SESSION['gal']['valid'] = "true";
           $_SESSION['gal']['c'] = $json_return['c'];
           $_SESSION['gal']['s'] = $json_return['s'];
-                  }
+          $_SESSION['gal']['m'] = str_repeat('🐄', substr_count($json_return['m'], 'o'));
+        }
         elseif ($json_return['response'] === "invalid") {
           $_SESSION['gal']['valid'] = "false";
           $_SESSION['gal']['c'] = $lang['mailbox']['no'];
           $_SESSION['gal']['s'] = $lang['mailbox']['no'];
+          $_SESSION['gal']['m'] = $lang['mailbox']['no'];
         }
       }
       else {
         $_SESSION['gal']['valid'] = "false";
         $_SESSION['gal']['c'] = $lang['danger']['temp_error'];
         $_SESSION['gal']['s'] = $lang['danger']['temp_error'];
+        $_SESSION['gal']['m'] = $lang['danger']['temp_error'];
       }
       try {
         // json_encode needs "true"/"false" instead of true/false, to not encode it to 0 or 1
@@ -1605,5 +1615,23 @@ function solr_status() {
     return (!empty($status['status']['dovecot-fts'])) ? $status['status']['dovecot-fts'] : false;
   }
   return false;
+}
+
+function cleanupJS($ignore = '', $folder = '/tmp/*.js') {
+    foreach (glob($folder) as $filename) {
+        if(strpos($filename, $ignore) !== false) {
+            continue;
+        }
+        unlink($filename);
+    }
+}
+
+function cleanupCSS($ignore = '', $folder = '/tmp/*.css') {
+    foreach (glob($folder) as $filename) {
+        if(strpos($filename, $ignore) !== false) {
+            continue;
+        }
+        unlink($filename);
+    }
 }
 ?>

@@ -16,7 +16,7 @@ done
 # Wait for updated schema
 DBV_NOW=$(mysql --socket=/var/run/mysqld/mysqld.sock -u ${DBUSER} -p${DBPASS} ${DBNAME} -e "SELECT version FROM versions WHERE application = 'db_schema';" -BN)
 DBV_NEW=$(grep -oE '\$db_version = .*;' init_db.inc.php | sed 's/$db_version = //g;s/;//g' | cut -d \" -f2)
-while [[ ${DBV_NOW} != ${DBV_NEW} ]]; do
+while [[ "${DBV_NOW}" != "${DBV_NEW}" ]]; do
   echo "Waiting for schema update..."
   DBV_NOW=$(mysql --socket=/var/run/mysqld/mysqld.sock -u ${DBUSER} -p${DBPASS} ${DBNAME} -e "SELECT version FROM versions WHERE application = 'db_schema';" -BN)
   DBV_NEW=$(grep -oE '\$db_version = .*;' init_db.inc.php | sed 's/$db_version = //g;s/;//g' | cut -d \" -f2)
@@ -30,13 +30,34 @@ mysql --socket=/var/run/mysqld/mysqld.sock -u ${DBUSER} -p${DBPASS} ${DBNAME} -e
 
 while [[ ${VIEW_OK} != 'OK' ]]; do
   mysql --socket=/var/run/mysqld/mysqld.sock -u ${DBUSER} -p${DBPASS} ${DBNAME} << EOF
-CREATE VIEW sogo_view (c_uid, domain, c_name, c_password, c_cn, mail, aliases, ad_aliases, ext_acl, kind, multiple_bookings) AS
-SELECT mailbox.username, mailbox.domain, mailbox.username, if(json_extract(attributes, '$.force_pw_update') LIKE '%0%', if(json_extract(attributes, '$.sogo_access') LIKE '%1%', password, '{SSHA256}A123A123A321A321A321B321B321B123B123B321B432F123E321123123321321'), '{SSHA256}A123A123A321A321A321B321B321B123B123B321B432F123E321123123321321'), mailbox.name, mailbox.username, IFNULL(GROUP_CONCAT(ga.aliases SEPARATOR ' '), ''), IFNULL(gda.ad_alias, ''), IFNULL(external_acl.send_as_acl, ''), mailbox.kind, mailbox.multiple_bookings FROM mailbox
-LEFT OUTER JOIN grouped_mail_aliases ga ON ga.username REGEXP CONCAT('(^|,)', mailbox.username, '($|,)')
-LEFT OUTER JOIN grouped_domain_alias_address gda ON gda.username = mailbox.username
-LEFT OUTER JOIN grouped_sender_acl_external external_acl ON external_acl.username = mailbox.username
-WHERE mailbox.active = '1'
-GROUP BY mailbox.username;
+CREATE VIEW sogo_view (c_uid, domain, c_name, c_password, c_cn, mail, aliases, ad_aliases, ext_acl, kind, multiple_bookings) AS 
+SELECT
+   mailbox.username,
+   mailbox.domain,
+   mailbox.username,
+   if(json_extract(attributes, '$.force_pw_update') LIKE '%0%', if(json_extract(attributes, '$.sogo_access') LIKE '%1%', password, '{SSHA256}A123A123A321A321A321B321B321B123B123B321B432F123E321123123321321'), '{SSHA256}A123A123A321A321A321B321B321B123B123B321B432F123E321123123321321'),
+   mailbox.name,
+   mailbox.username,
+   IFNULL(GROUP_CONCAT(ga.aliases ORDER BY ga.aliases SEPARATOR ' '), ''),
+   IFNULL(gda.ad_alias, ''),
+   IFNULL(external_acl.send_as_acl, ''),
+   mailbox.kind,
+   mailbox.multiple_bookings
+FROM
+   mailbox
+   LEFT OUTER JOIN
+      grouped_mail_aliases ga
+      ON ga.username REGEXP CONCAT('(^|,)', mailbox.username, '($|,)')
+   LEFT OUTER JOIN
+      grouped_domain_alias_address gda
+      ON gda.username = mailbox.username
+   LEFT OUTER JOIN
+      grouped_sender_acl_external external_acl
+      ON external_acl.username = mailbox.username
+WHERE
+   mailbox.active = '1'
+GROUP BY
+   mailbox.username;
 EOF
   if [[ ! -z $(mysql --socket=/var/run/mysqld/mysqld.sock -u ${DBUSER} -p${DBPASS} ${DBNAME} -B -e "SELECT 'OK' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'sogo_view'") ]]; then
     VIEW_OK=OK

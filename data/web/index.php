@@ -1,7 +1,13 @@
 <?php
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/prerequisites.inc.php';
 
-if (isset($_SESSION['mailcow_cc_role']) && $_SESSION['mailcow_cc_role'] == 'admin') {
+if (isset($_SESSION['mailcow_cc_role']) && isset($_SESSION['oauth2_request'])) {
+  $oauth2_request = $_SESSION['oauth2_request'];
+  unset($_SESSION['oauth2_request']);
+  header('Location: ' . $oauth2_request);
+  exit();
+}
+elseif (isset($_SESSION['mailcow_cc_role']) && $_SESSION['mailcow_cc_role'] == 'admin') {
   header('Location: /admin');
   exit();
 }
@@ -16,6 +22,7 @@ elseif (isset($_SESSION['mailcow_cc_role']) && $_SESSION['mailcow_cc_role'] == '
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/header.inc.php';
 $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
+$_SESSION['index_query_string'] = $_SERVER['QUERY_STRING'];
 
 ?>
 <div class="container">
@@ -25,13 +32,20 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
         <div class="panel-heading"><span class="glyphicon glyphicon-user" aria-hidden="true"></span> <?= $lang['login']['login']; ?></div>
         <div class="panel-body">
           <div class="text-center mailcow-logo"><img src="<?=($main_logo = customize('get', 'main_logo')) ? $main_logo : '/img/cow_mailcow.svg';?>" alt="mailcow"></div>
-          <legend><?=$UI_TEXTS['main_name'];?></legend>
+          <legend><?= isset($_SESSION['oauth2_request']) ? $lang['oauth2']['authorize_app'] : $UI_TEXTS['main_name'];?></legend>
+            <?php
+            if (strpos($_SESSION['index_query_string'], 'mobileconfig') !== false):
+            ?>
+            <div class="alert alert-info"><?= $lang['login']['mobileconfig_info']; ?></div>
+            <?php
+            endif;
+            ?>
             <form method="post" autofill="off">
             <div class="form-group">
               <label class="sr-only" for="login_user"><?= $lang['login']['username']; ?></label>
               <div class="input-group">
                 <div class="input-group-addon"><i class="glyphicon glyphicon-user"></i></div>
-                <input name="login_user" autocorrect="off" autocapitalize="none" type="text" id="login_user" class="form-control" placeholder="<?= $lang['login']['username']; ?>" required="" autofocus="">
+                <input name="login_user" autocorrect="off" autocapitalize="none" type="<?=(strpos($_SESSION['index_query_string'], 'mobileconfig') !== false) ? 'email' : 'text';?>" id="login_user" class="form-control" placeholder="<?= $lang['login']['username']; ?>" required="" autofocus="">
               </div>
             </div>
             <div class="form-group">
@@ -43,6 +57,7 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
             </div>
             <div class="form-group">
               <button type="submit" class="btn btn-success" value="Login"><?= $lang['login']['login']; ?></button>
+              <?php if(!isset($_SESSION['oauth2_request'])): ?>
               <div class="btn-group pull-right">
                 <button type="button" <?=(isset($_SESSION['mailcow_locale']) && count($AVAILABLE_LANGUAGES) === 1) ? 'disabled="true"' : '' ?> class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                   <span class="lang-sm lang-lbl" lang="<?= $_SESSION['mailcow_locale']; ?>"></span> <span class="caret"></span>
@@ -57,6 +72,7 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
                   ?>
                 </ul>
               </div>
+              <?php endif ?>
             </div>
             </form>
             <?php
@@ -66,6 +82,7 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
             <?php
             endif;
             ?>
+          <?php if(!isset($_SESSION['oauth2_request'])): ?>
           <legend><?=$UI_TEXTS['apps_name'];?></legend>
           <?php
           foreach ($MAILCOW_APPS as $app):
@@ -83,10 +100,12 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
               endforeach;
             }
           }
+          endif;
           ?>
         </div>
       </div>
     </div>
+    <?php if(!isset($_SESSION['oauth2_request'])): ?>
     <div class="col-md-offset-3 col-md-6">
       <div class="panel panel-default">
         <div class="panel-heading">
@@ -106,6 +125,7 @@ $_SESSION['return_to'] = $_SERVER['REQUEST_URI'];
         </div>
       </div>
     </div>
+    <?php endif ?>
   </div>
 </div><!-- /.container -->
 <?php

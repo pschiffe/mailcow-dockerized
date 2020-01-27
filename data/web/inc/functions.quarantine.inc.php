@@ -298,8 +298,17 @@ function quarantine($_action, $_data = null) {
         $max_size = $_data['max_size'];
         $max_age = intval($_data['max_age']);
         $subject = $_data['subject'];
+        if (!filter_var($_data['bcc'], FILTER_VALIDATE_EMAIL)) {
+          $bcc = '';
+        }
+        else {
+          $bcc = $_data['bcc'];
+        }
         if (!filter_var($_data['sender'], FILTER_VALIDATE_EMAIL)) {
           $sender = '';
+        }
+        else {
+          $sender = $_data['sender'];
         }
         $html = $_data['html_tmpl'];
         if ($max_age <= 0) {
@@ -313,6 +322,7 @@ function quarantine($_action, $_data = null) {
           $redis->Set('Q_EXCLUDE_DOMAINS', json_encode($exclude_domains));
           $redis->Set('Q_RELEASE_FORMAT', $release_format);
           $redis->Set('Q_SENDER', $sender);
+          $redis->Set('Q_BCC', $bcc);
           $redis->Set('Q_SUBJ', $subject);
           $redis->Set('Q_HTML', $html);
         }
@@ -440,7 +450,7 @@ function quarantine($_action, $_data = null) {
               array('250', 'MAIL FROM: ' . $sender . chr(10)),
               array('250', 'RCPT TO: ' . $row['rcpt'] . chr(10)),
               array('250', 'DATA' . chr(10)),
-              array('354', $row['msg'] . chr(10) . '.' . chr(10)),
+              array('354', str_replace("\n.", '', $row['msg']) . chr(10) . '.' . chr(10)),
               array('250', 'QUIT' . chr(10)),
               array('221', '')
             );
@@ -561,6 +571,28 @@ function quarantine($_action, $_data = null) {
                 );
               }
               curl_close($curl);
+              $curl = curl_init();
+              curl_setopt($curl, CURLOPT_UNIX_SOCKET_PATH, '/var/lib/rspamd/rspamd.sock');
+              curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+              curl_setopt($curl, CURLOPT_POST, 1);
+              curl_setopt($curl, CURLOPT_TIMEOUT, 30);
+              curl_setopt($curl, CURLOPT_HTTPHEADER, array('Content-Type: text/plain', 'Flag: 13'));
+              curl_setopt($curl, CURLOPT_URL,"http://rspamd/fuzzydel");
+              curl_setopt($curl, CURLOPT_POSTFIELDS, $row['msg']);
+              // It is most likely not a ham hash, so we ignore any error/warning response
+              // $response = curl_exec($curl);
+              curl_exec($curl);
+              // if (!curl_errno($curl)) {
+                // $response = json_decode($response, true);
+                // if (isset($response['error'])) {
+                  // $_SESSION['return'][] = array(
+                    // 'type' => 'warning',
+                    // 'log' => array(__FUNCTION__),
+                    // 'msg' => array('fuzzy_learn_error', $response['error'])
+                  // );
+                // }
+              // }
+              curl_close($curl);
               try {
                 $stmt = $pdo->prepare("DELETE FROM `quarantine` WHERE `id` = :id");
                 $stmt->execute(array(
@@ -621,7 +653,7 @@ function quarantine($_action, $_data = null) {
     break;
     case 'get':
       if ($_SESSION['mailcow_cc_role'] == "user") {
-        $stmt = $pdo->prepare('SELECT `id`, `qid`, `subject`, LOCATE("VIRUS_FOUND", `symbols`) AS `virus_flag`, `score`, `rcpt`, `sender`, UNIX_TIMESTAMP(`created`) AS `created` FROM `quarantine` WHERE `rcpt` = :mbox');
+        $stmt = $pdo->prepare('SELECT `id`, `qid`, `subject`, LOCATE("VIRUS_FOUND", `symbols`) AS `virus_flag`, `score`, `rcpt`, `sender`, UNIX_TIMESTAMP(`created`) AS `created`, `notified` FROM `quarantine` WHERE `rcpt` = :mbox');
         $stmt->execute(array(':mbox' => $_SESSION['mailcow_cc_username']));
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         while($row = array_shift($rows)) {
@@ -629,7 +661,7 @@ function quarantine($_action, $_data = null) {
         }
       }
       elseif ($_SESSION['mailcow_cc_role'] == "admin") {
-        $stmt = $pdo->query('SELECT `id`, `qid`, `subject`, LOCATE("VIRUS_FOUND", `symbols`) AS `virus_flag`, `score`, `rcpt`, `sender`, UNIX_TIMESTAMP(`created`) AS `created` FROM `quarantine`');
+        $stmt = $pdo->query('SELECT `id`, `qid`, `subject`, LOCATE("VIRUS_FOUND", `symbols`) AS `virus_flag`, `score`, `rcpt`, `sender`, UNIX_TIMESTAMP(`created`) AS `created`, `notified` FROM `quarantine`');
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         while($row = array_shift($rows)) {
           $q_meta[] = $row;
@@ -638,7 +670,7 @@ function quarantine($_action, $_data = null) {
       else {
         $domains = array_merge(mailbox('get', 'domains'), mailbox('get', 'alias_domains'));
         foreach ($domains as $domain) {
-          $stmt = $pdo->prepare('SELECT `id`, `qid`, `subject`, LOCATE("VIRUS_FOUND", `symbols`) AS `virus_flag`, `score`, `rcpt`, `sender`, UNIX_TIMESTAMP(`created`) AS `created` FROM `quarantine` WHERE `rcpt` REGEXP :domain');
+          $stmt = $pdo->prepare('SELECT `id`, `qid`, `subject`, LOCATE("VIRUS_FOUND", `symbols`) AS `virus_flag`, `score`, `rcpt`, `sender`, UNIX_TIMESTAMP(`created`) AS `created`, `notified` FROM `quarantine` WHERE `rcpt` REGEXP :domain');
           $stmt->execute(array(':domain' => '@' . $domain . '$'));
           $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
           while($row = array_shift($rows)) {
@@ -659,6 +691,7 @@ function quarantine($_action, $_data = null) {
         $settings['release_format'] = $redis->Get('Q_RELEASE_FORMAT');
         $settings['subject'] = $redis->Get('Q_SUBJ');
         $settings['sender'] = $redis->Get('Q_SENDER');
+        $settings['bcc'] = $redis->Get('Q_BCC');
         $settings['html_tmpl'] = htmlspecialchars($redis->Get('Q_HTML'));
         if (empty($settings['html_tmpl'])) {
           $settings['html_tmpl'] = htmlspecialchars(file_get_contents("/tpls/quarantine.tpl"));
@@ -678,7 +711,7 @@ function quarantine($_action, $_data = null) {
       if (!is_numeric($_data) || empty($_data)) {
         return false;
       }
-      $stmt = $pdo->prepare('SELECT `rcpt`, `symbols`, `msg`, `domain` FROM `quarantine` WHERE `id`= :id');
+      $stmt = $pdo->prepare('SELECT `rcpt`, `score`, `symbols`, `msg`, `domain` FROM `quarantine` WHERE `id`= :id');
       $stmt->execute(array(':id' => $_data));
       $row = $stmt->fetch(PDO::FETCH_ASSOC);
       if (hasMailboxObjectAccess($_SESSION['mailcow_cc_username'], $_SESSION['mailcow_cc_role'], $row['rcpt'])) {

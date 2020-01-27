@@ -33,6 +33,20 @@ done
 redis-cli -h redis-mailcow DEL F2B_RES > /dev/null
 
 # Common functions
+get_ipv6(){
+  local IPV6=
+  local IPV6_SRCS=
+  local TRY=
+  IPV6_SRCS[0]="ip6.korves.net"
+  IPV6_SRCS[1]="ip6.mailcow.email"
+  until [[ ! -z ${IPV6} ]] || [[ ${TRY} -ge 10 ]]; do
+    IPV6=$(curl --connect-timeout 3 -m 10 -L6s ${IPV6_SRCS[$RANDOM % ${#IPV6_SRCS[@]} ]} | grep "^\([0-9a-fA-F]\{0,4\}:\)\{1,7\}[0-9a-fA-F]\{0,4\}$")
+    [[ ! -z ${TRY} ]] && sleep 1
+    TRY=$((TRY+1))
+  done
+  echo ${IPV6}
+}
+
 array_diff() {
   # https://stackoverflow.com/questions/2312762, Alex Offshore
   eval local ARR1=\(\"\${$2[@]}\"\)
@@ -79,13 +93,14 @@ function mail_error() {
   IFS=',' read -r -a MAIL_RCPTS <<< "${WATCHDOG_NOTIFY_EMAIL}"
   for rcpt in "${MAIL_RCPTS[@]}"; do
     RCPT_DOMAIN=
-    RCPT_MX=
+    #RCPT_MX=
     RCPT_DOMAIN=$(echo ${rcpt} | awk -F @ {'print $NF'})
-    RCPT_MX=$(dig +short ${RCPT_DOMAIN} mx | sort -n | awk '{print $2; exit}')
-    if [[ -z ${RCPT_MX} ]]; then
-      log_msg "Cannot determine MX for ${rcpt}, skipping email notification..."
-      return 1
-    fi
+    # Latest smtp-cli looks up mx via dns
+    #RCPT_MX=$(dig +short ${RCPT_DOMAIN} mx | sort -n | awk '{print $2; exit}')
+    #if [[ -z ${RCPT_MX} ]]; then
+    #  log_msg "Cannot determine MX for ${rcpt}, skipping email notification..."
+    #  return 1
+    #fi
     [ -f "/tmp/${1}" ] && BODY="/tmp/${1}"
     timeout 10s ./smtp-cli --missing-modules-ok \
       --charset=UTF-8 \
@@ -93,8 +108,9 @@ function mail_error() {
       --body-plain="${BODY}" \
       --to=${rcpt} \
       --from="watchdog@${MAILCOW_HOSTNAME}" \
-      --server="${RCPT_MX}" \
-      --hello-host=${MAILCOW_HOSTNAME}
+      --hello-host=${MAILCOW_HOSTNAME} \
+      --ipv4
+      #--server="${RCPT_MX}"
     log_msg "Sent notification email to ${rcpt}"
   done
 }
@@ -136,6 +152,46 @@ get_container_ip() {
     LOOP_C=$((LOOP_C + 1))
   done
   [[ ${LOOP_C} -gt 5 ]] && echo 240.0.0.0 || echo ${CONTAINER_IP}
+}
+
+# One-time check
+if grep -qi "$(echo ${IPV6_NETWORK} | cut -d: -f1-3)" <<< "$(ip a s)"; then
+  if [[ -z "$(get_ipv6)" ]]; then
+    mail_error "ipv6-config" "enable_ipv6 is true in docker-compose.yml, but an IPv6 link could not be established. Please verify your IPv6 connection."
+  fi
+fi
+
+external_checks() {
+  err_count=0
+  diff_c=0
+  THRESHOLD=1
+  # Reduce error count by 2 after restarting an unhealthy container
+  GUID=$(mysql -u${DBUSER} -p${DBPASS} ${DBNAME} -e "SELECT version FROM versions WHERE application = 'GUID'" -BN)
+  trap "[ ${err_count} -gt 1 ] && err_count=$(( ${err_count} - 2 ))" USR1
+  while [ ${err_count} -lt ${THRESHOLD} ]; do
+    err_c_cur=${err_count}
+    CHECK_REPONSE="$(curl --connect-timeout 3 -m 10 -4 -s https://checks.mailcow.email -X POST -dguid=${GUID} 2> /dev/null)"
+    if [[ ! -z "${CHECK_REPONSE}" ]] && [[ "$(echo ${CHECK_REPONSE} | jq -r .response)" == "critical" ]]; then
+      echo ${CHECK_REPONSE} | jq -r .out > /tmp/external_checks
+      err_count=$(( ${err_count} + 1 ))
+    fi
+    CHECK_REPONSE6="$(curl --connect-timeout 3 -m 10 -6 -s https://checks.mailcow.email -X POST -dguid=${GUID} 2> /dev/null)"
+    if [[ ! -z "${CHECK_REPONSE6}" ]] && [[ "$(echo ${CHECK_REPONSE6} | jq -r .response)" == "critical" ]]; then
+      echo ${CHECK_REPONSE} | jq -r .out > /tmp/external_checks
+      err_count=$(( ${err_count} + 1 ))
+    fi
+    [ ${err_c_cur} -eq ${err_count} ] && [ ! $((${err_count} - 1)) -lt 0 ] && err_count=$((${err_count} - 1)) diff_c=1
+    [ ${err_c_cur} -ne ${err_count} ] && diff_c=$(( ${err_c_cur} - ${err_count} ))
+    progress "External checks" ${THRESHOLD} $(( ${THRESHOLD} - ${err_count} )) ${diff_c}
+    if [[ $? == 10 ]]; then
+      diff_c=0
+      sleep 60
+    else
+      diff_c=0
+      sleep $(( ( RANDOM % 20 ) + 120 ))
+    fi
+  done
+  return 1
 }
 
 nginx_checks() {
@@ -453,7 +509,12 @@ acme_checks() {
   while [ ${err_count} -lt ${THRESHOLD} ]; do
     err_c_cur=${err_count}
     ACME_LOG_STATUS_PREV=${ACME_LOG_STATUS}
-    ACME_LOG_STATUS=$(redis-cli -h redis GET ACME_FAIL_TIME)
+    ACME_LC=0
+    until [[ ! -z ${ACME_LOG_STATUS} ]] || [ ${ACME_LC} -ge 3 ]; do
+      ACME_LOG_STATUS=$(redis-cli -h redis GET ACME_FAIL_TIME 2> /dev/null)
+      sleep 3
+      ACME_LC=$((ACME_LC+1))
+    done
     if [[ ${ACME_LOG_STATUS_PREV} != ${ACME_LOG_STATUS} ]]; then
       err_count=$(( ${err_count} + 1 ))
     fi
@@ -518,7 +579,7 @@ rspamd_checks() {
 From: watchdog@localhost
 
 Empty
-' | usr/bin/curl -s --data-binary @- --unix-socket /var/lib/rspamd/rspamd.sock http://rspamd/scan | jq -rc .required_score)
+' | usr/bin/curl -s --data-binary @- --unix-socket /var/lib/rspamd/rspamd.sock http://rspamd/scan | jq -rc .default.required_score)
     if [[ ${SCORE} != "9999" ]]; then
       echo "Rspamd settings check failed" 2>> /tmp/rspamd-mailcow 1>&2
       err_count=$(( ${err_count} + 1))
@@ -549,7 +610,7 @@ olefy_checks() {
     touch /tmp/olefy-mailcow; echo "$(tail -50 /tmp/olefy-mailcow)" > /tmp/olefy-mailcow
     host_ip=$(get_container_ip olefy-mailcow)
     err_c_cur=${err_count}
-    /usr/lib/nagios/plugins/check_tcp -4 -H ${host_ip} -p 10055 2>> /tmp/olefy-mailcow 1>&2; err_count=$(( ${err_count} + $? ))
+    /usr/lib/nagios/plugins/check_tcp -4 -H ${host_ip} -p 10055 -s "PING\n" 2>> /tmp/olefy-mailcow 1>&2; err_count=$(( ${err_count} + $? ))
     [ ${err_c_cur} -eq ${err_count} ] && [ ! $((${err_count} - 1)) -lt 0 ] && err_count=$((${err_count} - 1)) diff_c=1
     [ ${err_c_cur} -ne ${err_count} ] && diff_c=$(( ${err_c_cur} - ${err_count} ))
     progress "Olefy" ${THRESHOLD} $(( ${THRESHOLD} - ${err_count} )) ${diff_c}
@@ -582,6 +643,20 @@ done
 PID=$!
 echo "Spawned nginx_checks with PID ${PID}"
 BACKGROUND_TASKS+=(${PID})
+
+if [[ ${WATCHDOG_EXTERNAL_CHECKS} =~ ^([yY][eE][sS]|[yY])+$ ]]; then
+(
+while true; do
+  if ! external_checks; then
+    log_msg "External checks hit error limit"
+    echo external_checks > /tmp/com_pipe
+  fi
+done
+) &
+PID=$!
+echo "Spawned external_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
+fi
 
 (
 while true; do
@@ -719,17 +794,17 @@ PID=$!
 echo "Spawned fail2ban_checks with PID ${PID}"
 BACKGROUND_TASKS+=(${PID})
 
-#(
-#while true; do
-#  if ! olefy_checks; then
-#    log_msg "Olefy hit error limit"
-#    echo olefy-mailcow > /tmp/com_pipe
-#  fi
-#done
-#) &
-#PID=$!
-#echo "Spawned olefy_checks with PID ${PID}"
-#BACKGROUND_TASKS+=(${PID})
+(
+while true; do
+  if ! olefy_checks; then
+    log_msg "Olefy hit error limit"
+    echo olefy-mailcow > /tmp/com_pipe
+  fi
+done
+) &
+PID=$!
+echo "Spawned olefy_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
 
 (
 while true; do
@@ -795,6 +870,9 @@ while true; do
   if [[ ${com_pipe_answer} == "ratelimit" ]]; then
     log_msg "At least one ratelimit was applied"
     [[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]] && mail_error "${com_pipe_answer}" "Please see mailcow UI logs for further information."
+  elif [[ ${com_pipe_answer} == "external_checks" ]]; then
+    log_msg "Your mailcow is an open relay!"
+    [[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]] && mail_error "${com_pipe_answer}" "Please stop mailcow now and check your network configuration!"
   elif [[ ${com_pipe_answer} == "acme-mailcow" ]]; then
     log_msg "acme-mailcow did not complete successfully"
     [[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]] && mail_error "${com_pipe_answer}" "Please check acme-mailcow for further information."

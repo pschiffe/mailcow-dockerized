@@ -12,6 +12,16 @@ if [[ "$(uname -r)" =~ ^4\.15\.0-60 ]]; then
   exit 1
 fi
 
+if [[ "$(uname -r)" =~ ^4\.4\. ]]; then
+  if grep -q Ubuntu <<< $(uname -a); then
+    echo "DO NOT RUN mailcow ON THIS UBUNTU KERNEL!"
+    echo "Please update to linux-generic-hwe-16.04 by running \"apt-get install --install-recommends linux-generic-hwe-16.04\""
+    exit 1
+  fi
+  echo "mailcow on a 4.4.x kernel is not supported. It may or may not work, please upgrade your kernel or continue at your own risk."
+  read -p "Press any key to continue..." < /dev/tty
+fi
+
 # Exit on error and pipefail
 set -o pipefail
 
@@ -150,6 +160,7 @@ CONFIG_ARRAY=(
   "USE_WATCHDOG"
   "WATCHDOG_NOTIFY_EMAIL"
   "WATCHDOG_NOTIFY_BAN"
+  "WATCHDOG_EXTERNAL_CHECKS"
   "SKIP_CLAMD"
   "SKIP_IP_CHECK"
   "ADDITIONAL_SAN"
@@ -168,6 +179,7 @@ CONFIG_ARRAY=(
   "ACL_ANYONE"
   "SOLR_HEAP"
   "SKIP_SOLR"
+  "ENABLE_SSL_SNI"
   "ALLOW_ADMIN_EMAIL_LOGIN"
   "SKIP_HTTP_VERIFICATION"
   "SOGO_EXPIRE_SESSION"
@@ -275,7 +287,15 @@ for option in ${CONFIG_ARRAY[@]}; do
       echo '# Solr is disabled by default after upgrading from non-Solr to Solr-enabled mailcows.' >> mailcow.conf
       echo '# Disable Solr or if you do not want to store a readable index of your mails in solr-vol-1.' >> mailcow.conf
       echo "SKIP_SOLR=y" >> mailcow.conf
-  fi
+    fi
+  elif [[ ${option} == "ENABLE_SSL_SNI" ]]; then
+    if ! grep -q ${option} mailcow.conf; then
+      echo "Adding new option \"${option}\" to mailcow.conf"
+      echo '# Create seperate certificates for all domains - y/n' >> mailcow.conf
+      echo '# this will allow adding more than 100 domains, but some email clients will not be able to connect with alternative hostnames' >> mailcow.conf
+      echo '# see https://wiki.dovecot.org/SSL/SNIClientSupport' >> mailcow.conf
+      echo "ENABLE_SSL_SNI=n" >> mailcow.conf
+    fi
   elif [[ ${option} == "MAILDIR_SUB" ]]; then
     if ! grep -q ${option} mailcow.conf; then
       echo "Adding new option \"${option}\" to mailcow.conf"
@@ -288,6 +308,14 @@ for option in ${CONFIG_ARRAY[@]}; do
       echo "Adding new option \"${option}\" to mailcow.conf"
       echo '# Notify about banned IP. Includes whois lookup.' >> mailcow.conf
       echo "WATCHDOG_NOTIFY_BAN=y" >> mailcow.conf
+  fi
+  elif [[ ${option} == "WATCHDOG_EXTERNAL_CHECKS" ]]; then
+    if ! grep -q ${option} mailcow.conf; then
+      echo "Adding new option \"${option}\" to mailcow.conf"
+      echo '# Checks if mailcow is an open relay. Requires a SAL. More checks will follow.' >> mailcow.conf
+      echo '# No data is collected. Opt-in and anonymous.' >> mailcow.conf
+      echo '# Will only work with unmodified mailcow setups.' >> mailcow.conf
+      echo "WATCHDOG_EXTERNAL_CHECKS=n" >> mailcow.conf
   fi
   elif [[ ${option} == "SOGO_EXPIRE_SESSION" ]]; then
     if ! grep -q ${option} mailcow.conf; then
@@ -383,7 +411,7 @@ fi
 
 echo -e "\e[32mFetching new docker-compose version...\e[0m"
 sleep 2
-if [[ ! -z $(which pip) && $(pip list --local | grep -c docker-compose) == 1 ]]; then
+if [[ ! -z $(which pip) && $(pip list --local 2>&1 | grep -v DEPRECATION | grep -c docker-compose) == 1 ]]; then
   true
   #prevent breaking a working docker-compose installed with pip
 elif [[ $(curl -sL -w "%{http_code}" https://www.servercow.de/docker-compose/latest.php -o /dev/null) == "200" ]]; then
@@ -407,7 +435,7 @@ docker-compose pull
 
 # Fix missing SSL, does not overwrite existing files
 [[ ! -d data/assets/ssl ]] && mkdir -p data/assets/ssl
-cp -n data/assets/ssl-example/*.pem data/assets/ssl/
+cp -n -d data/assets/ssl-example/*.pem data/assets/ssl/
 
 echo -e "Checking IPv6 settings... "
 if grep -q 'SYSCTL_IPV6_DISABLED=1' mailcow.conf; then
@@ -425,12 +453,6 @@ fi
 # Checking for old project name bug
 sed -i 's#COMPOSEPROJECT_NAME#COMPOSE_PROJECT_NAME#g' mailcow.conf
 
-echo -e "Fixing PHP-FPM worker ports for Nginx sites..."
-sed -i 's#phpfpm:9000#phpfpm:9002#g' data/conf/nginx/*.conf
-if ls data/conf/nginx/*.custom 1> /dev/null 2>&1; then
-  sed -i 's#phpfpm:9000#phpfpm:9002#g' data/conf/nginx/*.custom
-fi
-
 # Fix Rspamd maps
 if [ -f data/conf/rspamd/custom/global_from_blacklist.map ]; then
   mv data/conf/rspamd/custom/global_from_blacklist.map data/conf/rspamd/custom/global_smtp_from_blacklist.map
@@ -439,14 +461,18 @@ if [ -f data/conf/rspamd/custom/global_from_whitelist.map ]; then
   mv data/conf/rspamd/custom/global_from_whitelist.map data/conf/rspamd/custom/global_smtp_from_whitelist.map
 fi
 
+# Fix deprecated metrics.conf
+if [ -f "data/conf/rspamd/local.d/metrics.conf" ]; then
+  if [ ! -z "$(git diff --name-only origin/master data/conf/rspamd/local.d/metrics.conf)" ]; then
+    echo -e "\e[33mWARNING\e[0m - Please migrate your customizations of data/conf/rspamd/local.d/metrics.conf to actions.conf and groups.conf after this update."
+    echo "The deprecated configuration file metrics.conf will be moved to metrics.conf_deprecated after updating mailcow."
+  fi
+  mv data/conf/rspamd/local.d/metrics.conf data/conf/rspamd/local.d/metrics.conf_deprecated
+fi
+
 echo -e "\e[32mStarting mailcow...\e[0m"
 sleep 2
 docker-compose up -d --remove-orphans
-
-if [[ -f "data/web/nextcloud/occ" ]]; then
-  echo "Setting Nextcloud Redis timeout to 0.0..."
-  docker exec -it -u www-data $(docker ps -f name=php-fpm-mailcow -q) bash -c "/web/nextcloud/occ config:system:set redis timeout --value=0.0 --type=integer"
-fi
 
 echo -e "\e[32mCollecting garbage...\e[0m"
 docker_garbage

@@ -69,6 +69,7 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
 
       // check for valid json
       if ($action != 'get' && $requestDecoded === null) {
+        http_response_code(400);
         echo json_encode(array(
             'type' => 'error',
             'msg' => 'Request body doesn\'t contain valid json!'
@@ -126,6 +127,15 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
           $attr = (array)json_decode($_POST['attr'], true);
           unset($attr['csrf_token']);
         }
+        // only allow POST requests to POST API endpoints
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+          http_response_code(405);
+          echo json_encode(array(
+              'type' => 'error',
+              'msg' => 'only POST method is allowed'
+          ));
+          exit();
+        }
         switch ($category) {
           case "time_limited_alias":
             process_add_return(mailbox('add', 'time_limited_alias', $attr));
@@ -141,6 +151,9 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
           break;
           case "mailbox":
             process_add_return(mailbox('add', 'mailbox', $attr));
+          break;
+          case "oauth2-client":
+            process_add_return(oauth2('add', 'client', $attr));
           break;
           case "domain":
             process_add_return(mailbox('add', 'domain', $attr));
@@ -193,11 +206,31 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
           case "tls-policy-map":
             process_add_return(tls_policy_maps('add', $attr));
           break;
+          case "app-passwd":
+            process_add_return(app_passwd('add', $attr));
+          break;
+          // return no route found if no case is matched
+          default:
+            http_response_code(404);
+            echo json_encode(array(
+              'type' => 'error',
+              'msg' => 'route not found'
+            ));
+            exit();
         }
       break;
       case "get":
         function process_get_return($data) {
           echo (!isset($data) || empty($data)) ? '{}' : json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        }
+        // only allow GET requests to GET API endpoints
+        if ($_SERVER['REQUEST_METHOD'] != 'GET') {
+          http_response_code(405);
+          echo json_encode(array(
+              'type' => 'error',
+              'msg' => 'only GET method is allowed'
+          ));
+          exit();
         }
         switch ($category) {
           case "rspamd":
@@ -247,6 +280,39 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
 
               default:
                 $data = mailbox('get', 'domain_details', $object);
+                process_get_return($data);
+              break;
+            }
+          break;
+
+          case "app-passwd":
+            switch ($object) {
+              case "all":
+                if (empty($extra)) {
+                  $app_passwds = app_passwd('get');
+                }
+                else {
+                  $app_passwds = app_passwd('get', array('username' => $extra));
+                }
+                if (!empty($app_passwds)) {
+                  foreach ($app_passwds as $app_passwd) {
+                    $details = app_passwd('details', array('id' => $app_passwd['id']));
+                    if ($details !== false) {
+                      $data[] = $details;
+                    }
+                    else {
+                      continue;
+                    }
+                  }
+                  process_get_return($data);
+                }
+                else {
+                  echo '{}';
+                }
+              break;
+
+              default:
+                $data = app_passwd('details', array('id' => $object['id']));
                 process_get_return($data);
               break;
             }
@@ -558,12 +624,25 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
                 }
                 echo (isset($logs) && !empty($logs)) ? json_encode($logs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) : '{}';
               break;
+              // return no route found if no case is matched
+              default:
+                http_response_code(404);
+                echo json_encode(array(
+                  'type' => 'error',
+                  'msg' => 'route not found'
+                ));
+                exit();
             }
           break;
           case "mailbox":
             switch ($object) {
               case "all":
-                $domains = mailbox('get', 'domains');
+                if (empty($extra)) {
+                  $domains = mailbox('get', 'domains');
+                }
+                else {
+                  $domains = array($extra);
+                }
                 if (!empty($domains)) {
                   foreach ($domains as $domain) {
                     $mailboxes = mailbox('get', 'mailboxes', $domain);
@@ -902,7 +981,12 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
           case "alias":
             switch ($object) {
               case "all":
-                $domains = array_merge(mailbox('get', 'domains'), mailbox('get', 'alias_domains'));
+                if (empty($extra)) {
+                  $domains = array_merge(mailbox('get', 'domains'), mailbox('get', 'alias_domains'));
+                }
+                else {
+                  $domains = array($extra);
+                }
                 if (!empty($domains)) {
                   foreach ($domains as $domain) {
                     $aliases = mailbox('get', 'aliases', $domain);
@@ -1019,13 +1103,79 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
             switch ($object) {
               default:
                 $data = dkim('details', $object);
-                  process_get_return($data);
-                  break;
+                process_get_return($data);
+                break;
             }
           break;
-          default:
-            echo '{}';
+          case "presets":
+            switch ($object) {
+              case "rspamd":
+                process_get_return(presets('get', 'rspamd'));
+              break;
+              case "sieve":
+                process_get_return(presets('get', 'sieve'));
+              break;
+            }
           break;
+          case "status":
+            switch ($object) {
+              case "containers":
+                $containers = (docker('info'));
+                foreach ($containers as $container => $container_info) {
+                  $container . ' (' . $container_info['Config']['Image'] . ')';
+                  $containerstarttime = ($container_info['State']['StartedAt']);
+                  $containerstate = ($container_info['State']['Status']);
+                  $containerimage = ($container_info['Config']['Image']);
+                  $temp[$container] = array(
+                    'type' => 'info',
+                    'container' => $container,
+                    'state' => $containerstate,
+                    'started_at' => $containerstarttime,
+                    'image' => $containerimage
+                  );
+                }
+                echo json_encode($temp, JSON_UNESCAPED_SLASHES);
+              break;
+              case "vmail":
+                $exec_fields_vmail = array('cmd' => 'system', 'task' => 'df', 'dir' => '/var/vmail');
+                $vmail_df = explode(',', json_decode(docker('post', 'dovecot-mailcow', 'exec', $exec_fields_vmail), true));
+                $temp = array(
+                  'type' => 'info',
+                  'disk' => $vmail_df[0],
+                  'used' => $vmail_df[2],
+                  'total'=> $vmail_df[1],
+                  'used_percent' => $vmail_df[4]
+                );
+                echo json_encode($temp, JSON_UNESCAPED_SLASHES);
+            break;
+            case "solr":
+              $solr_status = solr_status();
+              $solr_size = ($solr_status['status']['dovecot-fts']['index']['size']);
+              $solr_documents = ($solr_status['status']['dovecot-fts']['index']['numDocs']);
+              if (strtolower(getenv('SKIP_SOLR')) != 'n') {
+                $solr_enabled = false;
+              }
+              else {
+                $solr_enabled = true;
+              }
+              echo json_encode(array(
+                'type' => 'info',
+                'solr_enabled' => $solr_enabled,
+                'solr_size' => $solr_size,
+                'solr_documents' => $solr_documents
+              ));
+            break;
+            }
+          break;
+        break;
+        // return no route found if no case is matched
+        default:
+          http_response_code(404);
+          echo json_encode(array(
+            'type' => 'error',
+            'msg' => 'route not found'
+          ));
+          exit();
         }
       break;
       case "delete":
@@ -1052,9 +1202,24 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
         else {
           $items = (array)json_decode($_POST['items'], true);
         }
+        // only allow POST requests to POST API endpoints
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+          http_response_code(405);
+          echo json_encode(array(
+              'type' => 'error',
+              'msg' => 'only POST method is allowed'
+          ));
+          exit();
+        }
         switch ($category) {
           case "alias":
             process_delete_return(mailbox('delete', 'alias', array('id' => $items)));
+          break;
+          case "oauth2-client":
+            process_delete_return(oauth2('delete', 'client', array('id' => $items)));
+          break;
+          case "app-passwd":
+            process_delete_return(app_passwd('delete', array('id' => $items)));
           break;
           case "relayhost":
             process_delete_return(relayhost('delete', array('id' => $items)));
@@ -1129,6 +1294,14 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
           case "rlhash":
             echo ratelimit('delete', null, implode($items));
           break;
+          // return no route found if no case is matched
+          default:
+            http_response_code(404);
+            echo json_encode(array(
+              'type' => 'error',
+              'msg' => 'route not found'
+            ));
+            exit();
         }
       break;
       case "edit":
@@ -1157,6 +1330,15 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
           unset($attr['csrf_token']);
           $items = isset($_POST['items']) ? (array)json_decode($_POST['items'], true) : null;
         }
+        // only allow POST requests to POST API endpoints
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+          http_response_code(405);
+          echo json_encode(array(
+              'type' => 'error',
+              'msg' => 'only POST method is allowed'
+          ));
+          exit();
+        }
         switch ($category) {
           case "bcc":
             process_edit_return(bcc('edit', array_merge(array('id' => $items), $attr)));
@@ -1167,11 +1349,17 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
           case "recipient_map":
             process_edit_return(recipient_map('edit', array_merge(array('id' => $items), $attr)));
           break;
+          case "app-passwd":
+            process_edit_return(app_passwd('edit', array_merge(array('id' => $items), $attr)));
+          break;
           case "tls-policy-map":
             process_edit_return(tls_policy_maps('edit', array_merge(array('id' => $items), $attr)));
           break;
           case "alias":
             process_edit_return(mailbox('edit', 'alias', array_merge(array('id' => $items), $attr)));
+          break;
+          case "rspamd-map":
+            process_edit_return(rspamd('edit', array_merge(array('map' => $items), $attr)));
           break;
           case "app_links":
             process_edit_return(customize('edit', 'app_links', $attr));
@@ -1217,7 +1405,7 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
           break;
           case "filter":
             process_edit_return(mailbox('edit', 'filter', array_merge(array('id' => $items), $attr)));
-          break;          
+          break;
           case "resource":
             process_edit_return(mailbox('edit', 'resource', array_merge(array('name' => $items), $attr)));
           break;
@@ -1265,8 +1453,29 @@ if (isset($_SESSION['mailcow_cc_role']) || isset($_SESSION['pending_mailcow_cc_u
               process_edit_return(edit_user_account($attr));
             }
           break;
+          // return no route found if no case is matched
+          default:
+            http_response_code(404);
+            echo json_encode(array(
+              'type' => 'error',
+              'msg' => 'route not found'
+            ));
+            exit();
         }
       break;
+      // return no route found if no case is matched
+      default:
+        http_response_code(404);
+        echo json_encode(array(
+          'type' => 'error',
+          'msg' => 'route not found'
+        ));
+        exit();
+    }
+  }
+  if ($_SESSION['mailcow_cc_api'] === true) {
+    if (isset($_SESSION['mailcow_cc_api']) && $_SESSION['mailcow_cc_api'] === true) {
+      unset($_SESSION['return']);
     }
   }
 }

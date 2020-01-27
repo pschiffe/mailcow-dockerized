@@ -50,13 +50,13 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
           <div class="form-group">
             <label class="control-label col-sm-2" for="password"><?=$lang['add']['password'];?> (<a href="#" class="generate_password"><?=$lang['add']['generate'];?></a>)</label>
             <div class="col-sm-10">
-            <input type="password" data-hibp="true" class="form-control" name="password" placeholder="" required>
+            <input type="password" data-pwgen-field="true" data-hibp="true" class="form-control" name="password" placeholder="" required>
             </div>
           </div>
           <div class="form-group">
             <label class="control-label col-sm-2" for="password2"><?=$lang['add']['password_repeat'];?></label>
             <div class="col-sm-10">
-            <input type="password" class="form-control" name="password2" placeholder="" required>
+            <input type="password" data-pwgen-field="true" class="form-control" name="password2" placeholder="" required>
             </div>
           </div>
           <div class="form-group">
@@ -176,7 +176,7 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
               <button class="btn btn-default" data-action="add_item" data-id="add_domain" data-api-url='add/domain' data-api-attr='{"restart_sogo":"1"}' href="#"><?=$lang['add']['add_domain_restart'];?></button>
             </div>
           </div>
-          <p><span class="glyphicon glyphicon-exclamation-sign text-danger"></span> <?=$lang['add']['restart_sogo_hint'];?></p>
+          <p><span class="glyphicon glyphicon-exclamation-sign text-danger"></span> <?=$lang['add']['post_domain_add'];?></p>
         </form>
       </div>
     </div>
@@ -397,7 +397,7 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
               ?>
               </select>
             </div>
-          </div> 
+          </div>
           <div class="form-group">
             <label class="control-label col-sm-2" for="host1"><?=$lang['add']['hostname'];?></label>
             <div class="col-sm-10">
@@ -586,7 +586,7 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
           <div class="form-group">
             <label class="control-label col-sm-2" for="script_desc"><?=$lang['add']['sieve_desc'];?></label>
             <div class="col-sm-10">
-            <input type="text" class="form-control" name="script_desc" required maxlength="255">
+            <input type="text" class="form-control" id="script_desc" name="script_desc" required maxlength="255">
             </div>
           </div>
           <div class="form-group">
@@ -610,6 +610,8 @@ if (!isset($_SESSION['mailcow_cc_role'])) {
             </div>
           </div>
         </form>
+        <?=$lang['mailbox']['sieve_preset_header']?>
+        <ul id="sieve_presets"></ul>
       </div>
     </div>
   </div>

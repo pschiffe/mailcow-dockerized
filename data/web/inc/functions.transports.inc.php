@@ -190,6 +190,9 @@ function transport($_action, $_data = null) {
       $active = intval($_data['active']);
       $lookup_mx = intval($_data['lookup_mx']);
       $nexthop = trim($_data['nexthop']);
+      if (filter_var($nexthop, FILTER_VALIDATE_IP)) {
+        $nexthop = '[' . $nexthop . ']';
+      }
       preg_match('/\[(.+)\].*/', $nexthop, $next_hop_matches);
       $next_hop_clean = (isset($next_hop_matches[1])) ? $next_hop_matches[1] : $nexthop;
       $username = str_replace(':', '\:', trim($_data['username']));
@@ -243,7 +246,7 @@ function transport($_action, $_data = null) {
           }
         }
       }
-      $destinations = array_values($destinations);
+      $destinations = array_values(array_unique($destinations));
       if (empty($destinations)) { return false; }
       if (isset($next_hop_matches[1])) {
         if (in_array($next_hop_clean, $existing_nh)) {
@@ -323,6 +326,9 @@ function transport($_action, $_data = null) {
           continue;
         }
         preg_match('/\[(.+)\].*/', $nexthop, $next_hop_matches);
+        if (filter_var($nexthop, FILTER_VALIDATE_IP)) {
+          $nexthop = '[' . $nexthop . ']';
+        }
         $next_hop_clean = (isset($next_hop_matches[1])) ? $next_hop_matches[1] : $nexthop;
         $transports = transport('get');
         if (!empty($transports)) {

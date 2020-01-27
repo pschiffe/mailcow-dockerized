@@ -7,23 +7,9 @@ while ! mysqladmin status --socket=/var/run/mysqld/mysqld.sock -u${DBUSER} -p${D
   sleep 2
 done
 
-# Hard-code env vars to scripts due to cron not passing them to the scripts
-sed -i "s/__DBUSER__/${DBUSER}/g" /usr/local/bin/imapsync_cron.pl
-sed -i "s/__DBPASS__/${DBPASS}/g" /usr/local/bin/imapsync_cron.pl
-sed -i "s/__DBNAME__/${DBNAME}/g" /usr/local/bin/imapsync_cron.pl
-
-sed -i "s/__DBUSER__/${DBUSER}/g" /usr/local/bin/quarantine_notify.py
-sed -i "s/__DBPASS__/${DBPASS}/g" /usr/local/bin/quarantine_notify.py
-sed -i "s/__DBNAME__/${DBNAME}/g" /usr/local/bin/quarantine_notify.py
-
-sed -i "s/__DBUSER__/${DBUSER}/g" /usr/local/bin/clean_q_aged.sh
-sed -i "s/__DBPASS__/${DBPASS}/g" /usr/local/bin/clean_q_aged.sh
-sed -i "s/__DBNAME__/${DBNAME}/g" /usr/local/bin/clean_q_aged.sh
-
-sed -i "s/__LOG_LINES__/${LOG_LINES}/g" /usr/local/bin/trim_logs.sh
-
 # Create missing directories
 [[ ! -d /etc/dovecot/sql/ ]] && mkdir -p /etc/dovecot/sql/
+[[ ! -d /etc/dovecot/lua/ ]] && mkdir -p /etc/dovecot/lua/
 [[ ! -d /var/vmail/_garbage ]] && mkdir -p /var/vmail/_garbage
 [[ ! -d /var/vmail/sieve ]] && mkdir -p /var/vmail/sieve
 [[ ! -d /etc/sogo ]] && mkdir -p /etc/sogo
@@ -127,6 +113,39 @@ default_pass_scheme = SSHA256
 password_query = SELECT password FROM mailbox WHERE active = '1' AND username = '%u' AND domain IN (SELECT domain FROM domain WHERE domain='%d' AND active='1') AND JSON_EXTRACT(attributes, '$.force_pw_update') NOT LIKE '%%1%%'
 EOF
 
+cat <<EOF > /etc/dovecot/lua/app-passdb.lua
+function auth_password_verify(req, pass)
+  if req.domain == nil then
+    return dovecot.auth.PASSDB_RESULT_USER_UNKNOWN, "No such user"
+  end
+  local cur,errorString = con:execute(string.format([[SELECT mailbox, password FROM app_passwd
+    WHERE mailbox = '%s'
+      AND active = '1'
+      AND domain IN (SELECT domain FROM domain WHERE domain='%s' AND active='1')]], con:escape(req.user), con:escape(req.domain)))
+  local row = cur:fetch ({}, "a")
+  while row do
+    if req.password_verify(req, row.password, pass) == 1 then
+      cur:close()
+      return dovecot.auth.PASSDB_RESULT_OK, "password=" .. pass
+    end
+    row = cur:fetch (row, "a")
+  end
+  return dovecot.auth.PASSDB_RESULT_USER_UNKNOWN, "No such user"
+end
+
+function script_init()
+  mysql = require "luasql.mysql"
+  env  = mysql.mysql()
+  con = env:connect("__DBNAME__","__DBUSER__","__DBPASS__","mysql")
+  return 0
+end
+
+function script_deinit()
+  con:close()
+  env:close()
+end
+EOF
+
 # Migrate old sieve_after file
 [[ -f /etc/dovecot/sieve_after ]] && mv /etc/dovecot/sieve_after /etc/dovecot/global_sieve_after
 # Create global sieve scripts
@@ -142,6 +161,20 @@ if [[ $(stat -c %U /var/attachments) != "vmail" ]] ; then chown -R vmail:vmail /
 # Cleanup random user maildirs
 rm -rf /var/vmail/mailcow.local/*
 
+# create sni configuration
+echo "" > /etc/dovecot/sni.conf
+for cert_dir in /etc/ssl/mail/*/ ; do
+  if [[ ! -f ${cert_dir}domains ]] || [[ ! -f ${cert_dir}cert.pem ]] || [[ ! -f ${cert_dir}key.pem ]]; then
+    continue
+  fi
+  domains=($(cat ${cert_dir}domains))
+  for domain in ${domains[@]}; do
+    echo 'local_name '${domain}' {' >> /etc/dovecot/sni.conf;
+    echo '  ssl_cert = <'${cert_dir}'cert.pem' >> /etc/dovecot/sni.conf;
+    echo '  ssl_key = <'${cert_dir}'key.pem' >> /etc/dovecot/sni.conf;
+    echo '}' >> /etc/dovecot/sni.conf;
+  done
+done
 
 # Create random master for SOGo sieve features
 RAND_USER=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 16 | head -n 1)
@@ -162,7 +195,7 @@ namespace {
     type = shared
     separator = /
     prefix = Shared/%%u/
-    location = maildir:%%h${MAILDIR_SUB_SHARED}:INDEX=~${MAILDIR_SUB_SHARED}/Shared/%%u;CONTROL=~${MAILDIR_SUB_SHARED}/Shared/%%u
+    location = maildir:%%h${MAILDIR_SUB_SHARED}:INDEX=~${MAILDIR_SUB_SHARED}/Shared/%%u
     subscriptions = no
     list = children
 }
@@ -184,6 +217,12 @@ else
     rm -f /etc/dovecot/sogo-sso.conf
 fi
 
+# Hard-code env vars to scripts due to cron not passing them to the scripts
+sed -i "s/__DBUSER__/${DBUSER}/g" /usr/local/bin/imapsync_cron.pl /usr/local/bin/quarantine_notify.py /usr/local/bin/clean_q_aged.sh /etc/dovecot/lua/app-passdb.lua
+sed -i "s/__DBPASS__/${DBPASS}/g" /usr/local/bin/imapsync_cron.pl /usr/local/bin/quarantine_notify.py /usr/local/bin/clean_q_aged.sh /etc/dovecot/lua/app-passdb.lua
+sed -i "s/__DBNAME__/${DBNAME}/g" /usr/local/bin/imapsync_cron.pl /usr/local/bin/quarantine_notify.py /usr/local/bin/clean_q_aged.sh /etc/dovecot/lua/app-passdb.lua
+sed -i "s/__LOG_LINES__/${LOG_LINES}/g" /usr/local/bin/trim_logs.sh
+
 # 401 is user dovecot
 if [[ ! -s /mail_crypt/ecprivkey.pem || ! -s /mail_crypt/ecpubkey.pem ]]; then
 	openssl ecparam -name prime256v1 -genkey | openssl pkey -out /mail_crypt/ecprivkey.pem
@@ -201,8 +240,8 @@ sievec /usr/lib/dovecot/sieve/report-ham.sieve
 
 # Fix permissions
 chown root:root /etc/dovecot/sql/*.conf
-chown root:dovecot /etc/dovecot/sql/dovecot-dict-sql-sieve* /etc/dovecot/sql/dovecot-dict-sql-quota*
-chmod 640 /etc/dovecot/sql/*.conf
+chown root:dovecot /etc/dovecot/sql/dovecot-dict-sql-sieve* /etc/dovecot/sql/dovecot-dict-sql-quota* /etc/dovecot/lua/app-passdb.lua
+chmod 640 /etc/dovecot/sql/*.conf /etc/dovecot/lua/app-passdb.lua
 chown -R vmail:vmail /var/vmail/sieve
 chown -R vmail:vmail /var/volatile
 adduser vmail tty
@@ -259,5 +298,17 @@ fi
 
 # Collect SA rules once now
 /usr/local/bin/sa-rules.sh
+
+# Run hooks
+for file in /hooks/*; do
+  if [ -x "${file}" ]; then
+    echo "Running hook ${file}"
+    "${file}"
+  fi
+done
+
+# For some strange, unknown and stupid reason, Dovecot may run into a race condition, when this file is not touched before it is read by dovecot/auth
+# May be related to something inside Docker, I seriously don't know
+touch /etc/dovecot/lua/app-passdb.lua
 
 exec "$@"

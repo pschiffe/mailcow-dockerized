@@ -8,6 +8,14 @@ if [[ "$(uname -r)" =~ ^4\.15\.0-60 ]]; then
   exit 1
 fi
 
+if [[ "$(uname -r)" =~ ^4\.4\. ]]; then
+  if grep -q Ubuntu <<< $(uname -a); then
+    echo "DO NOT RUN mailcow ON THIS UBUNTU KERNEL!";
+    echo "Please update to linux-generic-hwe-16.04 by running \"apt-get install --install-recommends linux-generic-hwe-16.04\""
+  fi
+  exit 1
+fi
+
 if grep --help 2>&1 | grep -q -i "busybox"; then
   echo "BusybBox grep detected, please install gnu grep, \"apk add --no-cache --upgrade grep\""
   exit 1
@@ -191,6 +199,11 @@ ADDITIONAL_SAN=
 
 SKIP_LETS_ENCRYPT=n
 
+# Create seperate certificates for all domains - y/n
+# this will allow adding more than 100 domains, but some email clients will not be able to connect with alternative hostnames
+# see https://wiki.dovecot.org/SSL/SNIClientSupport
+ENABLE_SSL_SNI=n
+
 # Skip IPv4 check in ACME container - y/n
 
 SKIP_IP_CHECK=n
@@ -228,6 +241,13 @@ ALLOW_ADMIN_EMAIL_LOGIN=n
 
 # Notify about banned IP (includes whois lookup)
 WATCHDOG_NOTIFY_BAN=y
+
+# Checks if mailcow is an open relay. Requires a SAL. More checks will follow.
+# https://www.servercow.de/mailcow?lang=en
+# https://www.servercow.de/mailcow?lang=de
+# No data is collected. Opt-in and anonymous.
+# Will only work with unmodified mailcow setups.
+WATCHDOG_EXTERNAL_CHECKS=n
 
 # Max log lines per service to keep in Redis logs
 
@@ -269,4 +289,4 @@ mkdir -p data/assets/ssl
 chmod 600 mailcow.conf
 
 # copy but don't overwrite existing certificate
-cp -n data/assets/ssl-example/*.pem data/assets/ssl/
+cp -n -d data/assets/ssl-example/*.pem data/assets/ssl/

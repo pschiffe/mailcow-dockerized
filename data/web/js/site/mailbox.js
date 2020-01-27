@@ -10,11 +10,11 @@ $(document).ready(function() {
       this._super();
       var self = this;
       var domains = [];
-      
+
       $.each(self.ft.rows.all, function(i, row){
         if((row.val().domain != null) && ($.inArray(row.val().domain, domains) === -1)) domains.push(row.val().domain);
       });
-      
+
       $form_grp = $('<div/>', {'class': 'form-group'})
         .append($('<label/>', {'class': 'sr-only', text: 'Domain'}))
         .prependTo(self.$form);
@@ -48,6 +48,10 @@ $(document).ready(function() {
       $(this.$domain).closest("select").selectpicker();
     }
   });
+  // Clone mailbox mass actions
+  $("div").find("[data-actions-header='true'").each(function() {
+    $(this).html($(this).nextAll('.mass-actions-mailbox:first').html());
+  });
   // Auto-fill domain quota when adding new domain
   auto_fill_quota = function(domain) {
 		$.get("/api/v1/get/domain/" + domain, function(data){
@@ -70,15 +74,6 @@ $(document).ready(function() {
     auto_fill_quota($('#addSelectDomain').val());
 	});
   auto_fill_quota($('#addSelectDomain').val());
-  $(".generate_password").click(function( event ) {
-    event.preventDefault();
-    $('[data-hibp]').trigger('input');
-    var random_passwd = GPW.pronounceable(8)
-    $(this).closest("form").find("input[name='password']").prop('type', 'text');
-    $(this).closest("form").find("input[name='password2']").prop('type', 'text');
-    $(this).closest("form").find("input[name='password']").val(random_passwd);
-    $(this).closest("form").find("input[name='password2']").val(random_passwd);
-  });
   $(".goto_checkbox").click(function( event ) {
    $("form[data-id='add_alias'] .goto_checkbox").not(this).prop('checked', false);
     if ($("form[data-id='add_alias'] .goto_checkbox:checked").length > 0) {
@@ -133,16 +128,15 @@ $(document).ready(function() {
     $(e.currentTarget).find('#sieveDataText').html('<pre style="font-size:14px;line-height:1.1">' + sieveScript + '</pre>');
   });
   // Disable submit button on script change
-	$('#script_data').on('keyup', function() {
+	$('.textarea-code').on('keyup', function() {
     $('#add_filter_btns > #add_sieve_script').attr({"disabled": true});
-    $('#validation_msg').html('-');
 	});
   // Validate script data
   $("#validate_sieve").click(function( event ) {
     event.preventDefault();
     var script = $('#script_data').val();
     $.ajax({
-      dataType: 'jsonp',
+      dataType: 'json',
       url: "/inc/ajax/sieve_validation.php",
       type: "get",
       data: { script: script },
@@ -208,7 +202,7 @@ jQuery(function($){
         .tooltip();
     }
     $('.refresh_table').prop("disabled", false);
-    heading = ft.$el.parents('.tab-pane').find('.panel-heading')
+    heading = ft.$el.parents('.panel').find('.panel-heading')
     var ft_paging = ft.use(FooTable.Paging)
     $(heading).children('.table-lines').text(function(){
       return ft_paging.totalRows;
@@ -234,6 +228,7 @@ jQuery(function($){
         {"name":"max_quota_for_mbox","title":lang.mailbox_quota,"breakpoints":"xs sm","style":{"width":"125px"}},
         {"name":"rl","title":"RL","breakpoints":"xs sm md lg","style":{"maxWidth":"100px","width":"100px"}},
         {"name":"backupmx","filterable": false,"style":{"maxWidth":"120px","width":"120px"},"title":lang.backup_mx,"breakpoints":"xs sm md lg"},
+        {"name":"domain_admins","title":lang.domain_admins,"style":{"word-break":"break-all","min-width":"200px"},"breakpoints":"xs sm md lg","filterable":(role == "admin"),"visible":(role == "admin")},
         {"name":"active","filterable": false,"style":{"maxWidth":"80px","width":"80px"},"title":lang.active},
         {"name":"action","filterable": false,"sortable": false,"style":{"text-align":"right","maxWidth":"240px","width":"240px"},"type":"html","title":lang.action,"breakpoints":"xs sm md"}
       ],
@@ -703,74 +698,6 @@ jQuery(function($){
       "toggleSelector": "table tbody span.footable-toggle"
     });
   }
-  function draw_transport_maps_table() {
-    ft_transport_maps_table = FooTable.init('#transport_maps_table', {
-      "columns": [
-        {"name":"chkbox","title":"","style":{"maxWidth":"60px","width":"60px"},"filterable": false,"sortable": false,"type":"html"},
-        {"sorted": true,"name":"id","title":"ID","style":{"maxWidth":"60px","width":"60px","text-align":"center"}},
-        {"name":"dest","title":lang.tls_map_dest},
-        {"name":"parameters","title":lang.tls_map_parameters},
-        {"name":"active","filterable": false,"style":{"maxWidth":"80px","width":"80px"},"title":lang.active},
-        {"name":"action","filterable": false,"sortable": false,"style":{"text-align":"right","maxWidth":"180px","width":"180px"},"type":"html","title":(role == "admin" ? lang.action : ""),"breakpoints":"xs sm"}
-      ],
-      "empty": lang.empty,
-      "rows": $.ajax({
-        dataType: 'json',
-        url: '/api/v1/get/transport-map/all',
-        jsonp: false,
-        error: function () {
-          console.log('Cannot draw transport map table');
-        },
-        success: function (data) {
-          if (role == "admin") {
-            $.each(data, function (i, item) {
-              item.dest = escapeHtml(item.dest);
-              if (item.parameters == '') {
-                item.parameters = '<code>-</code>';
-              } else {
-                item.parameters = '<code>' + escapeHtml(item.parameters) + '</code>';
-              }
-              item.action = '<div class="btn-group">' +
-                '<a href="/edit/transport_map/' + item.id + '" class="btn btn-xs btn-default"><span class="glyphicon glyphicon-pencil"></span> ' + lang.edit + '</a>' +
-                '<a href="#" data-action="delete_selected" data-id="single-transport-map" data-api-url="delete/transport-map" data-item="' + item.id + '" class="btn btn-xs btn-danger"><span class="glyphicon glyphicon-trash"></span> ' + lang.remove + '</a>' +
-                '</div>';
-              item.chkbox = '<input type="checkbox" data-id="transport-map" name="multi_select" value="' + item.id + '" />';
-            });
-          }
-        }
-      }),
-      "paging": {
-        "enabled": true,
-        "limit": 5,
-        "size": pagination_size
-      },
-      "state": {
-        "enabled": true
-      },
-      "filtering": {
-        "enabled": true,
-        "delay": 1200,
-        "position": "left",
-        "connectors": false,
-        "placeholder": lang.filter_table
-      },
-      "sorting": {
-        "enabled": true
-      },
-      "on": {
-        "destroy.ft.table": function(e, ft){
-          $('.refresh_table').attr('disabled', 'true');
-        },
-        "ready.ft.table": function(e, ft){
-          table_mailbox_ready(ft, 'transport_maps_table');
-        },
-        "after.ft.filtering": function(e, ft){
-          table_mailbox_ready(ft, 'transport_maps_table');
-        }
-      },
-      "toggleSelector": "table tbody span.footable-toggle"
-    });
-  }
   function draw_alias_table() {
     ft_alias_table = FooTable.init('#alias_table', {
       "columns": [
@@ -1102,6 +1029,5 @@ jQuery(function($){
   draw_bcc_table();
   draw_recipient_map_table();
   draw_tls_policy_table();
-  draw_transport_maps_table();
 
 });
