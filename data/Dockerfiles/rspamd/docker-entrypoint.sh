@@ -52,6 +52,33 @@ if [[ ! -z ${RSPAMD_V6} ]]; then
   echo ${RSPAMD_V6}/128 >> /etc/rspamd/custom/rspamd_trusted.map
 fi
 
+if [[ ! -z ${REDIS_SLAVEOF_IP} ]]; then
+  cat <<EOF > /etc/rspamd/local.d/redis.conf
+read_servers = "redis:6379";
+write_servers = "${REDIS_SLAVEOF_IP}:${REDIS_SLAVEOF_PORT}";
+timeout = 10;
+EOF
+  until [[ $(redis-cli -h redis-mailcow PING) == "PONG" ]]; do
+    echo "Waiting for Redis slave..."
+    sleep 2
+  done
+  until [[ $(redis-cli -h ${REDIS_SLAVEOF_IP} -p ${REDIS_SLAVEOF_PORT} PING) == "PONG" ]]; do
+    echo "Waiting for Redis master..."
+    sleep 2
+  done
+  redis-cli -h redis-mailcow SLAVEOF ${REDIS_SLAVEOF_IP} ${REDIS_SLAVEOF_PORT}
+else
+  cat <<EOF > /etc/rspamd/local.d/redis.conf
+servers = "redis:6379";
+timeout = 10;
+EOF
+  until [[ $(redis-cli -h redis-mailcow PING) == "PONG" ]]; do
+    echo "Waiting for Redis slave..."
+    sleep 2
+  done
+  redis-cli -h redis-mailcow SLAVEOF NO ONE
+fi
+
 chown -R _rspamd:_rspamd /var/lib/rspamd \
   /etc/rspamd/local.d \
   /etc/rspamd/override.d \
@@ -76,7 +103,8 @@ touch /etc/rspamd/custom/global_mime_from_blacklist.map \
   /etc/rspamd/custom/fishy_tlds.map \
   /etc/rspamd/custom/bad_words.map \
   /etc/rspamd/custom/bad_asn.map \
-  /etc/rspamd/custom/bad_words_de.map
+  /etc/rspamd/custom/bad_words_de.map \
+  /etc/rspamd/custom/bulk_headers.map
 
 # www-data (82) group needs to write to these files
 chown _rspamd:_rspamd /etc/rspamd/custom/

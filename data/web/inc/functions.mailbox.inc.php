@@ -324,6 +324,9 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
           }
           $domain				= idn_to_ascii(strtolower(trim($_data['domain'])), 0, INTL_IDNA_VARIANT_UTS46);
           $description  = $_data['description'];
+          if (empty($description)) {
+            $description = $domain;
+          }
           $aliases			= $_data['aliases'];
           $mailboxes    = $_data['mailboxes'];
           $defquota			= $_data['defquota'];
@@ -958,6 +961,9 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             ':active' => $active
           ));
           $stmt = $pdo->prepare("INSERT INTO `quota2` (`username`, `bytes`, `messages`)
+            VALUES (:username, '0', '0') ON DUPLICATE KEY UPDATE `bytes` = '0', `messages` = '0';");
+          $stmt->execute(array(':username' => $username));
+          $stmt = $pdo->prepare("INSERT INTO `quota2replica` (`username`, `bytes`, `messages`)
             VALUES (:username, '0', '0') ON DUPLICATE KEY UPDATE `bytes` = '0', `messages` = '0';");
           $stmt->execute(array(':username' => $username));
           $stmt = $pdo->prepare("INSERT INTO `alias` (`address`, `goto`, `domain`, `active`)
@@ -3164,6 +3170,10 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
           }
           $mailboxdata = array();
           $rl = ratelimit('get', 'mailbox', $_data);
+          $last_mail_login = $redis->Get('last-login/' . $_data);
+          if ($last_mail_login === false) {
+            $last_mail_login = '';
+          }
           $stmt = $pdo->prepare("SELECT
               `domain`.`backupmx`,
               `mailbox`.`username`,
@@ -3206,6 +3216,7 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
           }
           $mailboxdata['is_relayed'] = $row['backupmx'];
           $mailboxdata['name'] = $row['name'];
+          $mailboxdata['last_mail_login'] = $last_mail_login;
           $mailboxdata['active'] = $row['active'];
           $mailboxdata['active_int'] = $row['active_int'];
           $mailboxdata['domain'] = $row['domain'];
@@ -3558,6 +3569,10 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
             $stmt->execute(array(
               ':domain' => '%@'.$domain,
             ));
+            $stmt = $pdo->prepare("DELETE FROM `quota2replica` WHERE `username` LIKE :domain");
+            $stmt->execute(array(
+              ':domain' => '%@'.$domain,
+            ));
             $stmt = $pdo->prepare("DELETE FROM `spamalias` WHERE `address` LIKE :domain");
             $stmt->execute(array(
               ':domain' => '%@'.$domain,
@@ -3757,6 +3772,10 @@ function mailbox($_action, $_type, $_data = null, $_extra = null) {
               ':username' => $username
             ));
             $stmt = $pdo->prepare("DELETE FROM `quota2` WHERE `username` = :username");
+            $stmt->execute(array(
+              ':username' => $username
+            ));
+            $stmt = $pdo->prepare("DELETE FROM `quota2replica` WHERE `username` = :username");
             $stmt->execute(array(
               ':username' => $username
             ));
