@@ -3,13 +3,21 @@ function init_db_schema() {
   try {
     global $pdo;
 
-    $db_version = "05032020_0715";
+    $db_version = "14072020_1600";
 
     $stmt = $pdo->query("SHOW TABLES LIKE 'versions'");
     $num_results = count($stmt->fetchAll(PDO::FETCH_ASSOC));
     if ($num_results != 0) {
       $stmt = $pdo->query("SELECT `version` FROM `versions` WHERE `application` = 'db_schema'");
       if ($stmt->fetch(PDO::FETCH_ASSOC)['version'] == $db_version) {
+        return true;
+      }
+      if (!preg_match('/y|yes/i', getenv('MASTER'))) {
+        $_SESSION['return'][] = array(
+          'type' => 'warning',
+          'log' => array(__FUNCTION__),
+          'msg' => 'Database not initialized: not running db_init on slave.'
+        );
         return true;
       }
     }
@@ -173,6 +181,7 @@ function init_db_schema() {
           "skip_ip_check" => "TINYINT(1) NOT NULL DEFAULT '0'",
           "created" => "DATETIME(0) NOT NULL DEFAULT NOW(0)",
           "modified" => "DATETIME ON UPDATE NOW(0)",
+          "access" => "ENUM('ro', 'rw') NOT NULL DEFAULT 'rw'",
           "active" => "TINYINT(1) NOT NULL DEFAULT '1'"
         ),
         "keys" => array(
@@ -210,6 +219,7 @@ function init_db_schema() {
           "backupmx" => "TINYINT(1) NOT NULL DEFAULT '0'",
           "gal" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "relay_all_recipients" => "TINYINT(1) NOT NULL DEFAULT '0'",
+          "relay_unknown_only" => "TINYINT(1) NOT NULL DEFAULT '0'",
           "created" => "DATETIME(0) NOT NULL DEFAULT NOW(0)",
           "modified" => "DATETIME ON UPDATE CURRENT_TIMESTAMP",
           "active" => "TINYINT(1) NOT NULL DEFAULT '1'"
@@ -362,8 +372,9 @@ function init_db_schema() {
           "spam_policy" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "delimiter_action" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "syncjobs" => "TINYINT(1) NOT NULL DEFAULT '1'",
-          "eas_reset" => "TINYINT(1) NOT NULL DEFAULT '0'",
-          "sogo_profile_reset" => "TINYINT(1) NOT NULL DEFAULT '1'",
+          "eas_reset" => "TINYINT(1) NOT NULL DEFAULT '1'",
+          "sogo_profile_reset" => "TINYINT(1) NOT NULL DEFAULT '0'",
+          "pushover" => "TINYINT(1) NOT NULL DEFAULT '1'",
           // quarantine is for quarantine actions, todo: rename
           "quarantine" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "quarantine_attachments" => "TINYINT(1) NOT NULL DEFAULT '1'",
@@ -524,6 +535,7 @@ function init_db_schema() {
           "sogo_access" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "app_passwds" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "bcc_maps" => "TINYINT(1) NOT NULL DEFAULT '1'",
+          "pushover" => "TINYINT(1) NOT NULL DEFAULT '0'",
           "filters" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "ratelimit" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "spam_policy" => "TINYINT(1) NOT NULL DEFAULT '1'",
@@ -552,7 +564,7 @@ function init_db_schema() {
           "password1" => "VARCHAR(255) NOT NULL",
           "exclude" => "VARCHAR(500) NOT NULL DEFAULT ''",
           "maxage" => "SMALLINT NOT NULL DEFAULT '0'",
-          "mins_interval" => "VARCHAR(50) NOT NULL DEFAULT '0'",
+          "mins_interval" => "SMALLINT UNSIGNED NOT NULL DEFAULT '0'",
           "maxbytespersecond" => "VARCHAR(50) NOT NULL DEFAULT '0'",
           "port1" => "SMALLINT UNSIGNED NOT NULL",
           "enc1" => "ENUM('TLS','SSL','PLAIN') DEFAULT 'TLS'",
@@ -735,7 +747,7 @@ function init_db_schema() {
         "cols" => array(
           "c_folder_id" => "INT NOT NULL",
           "c_name" => "VARCHAR(255) NOT NULL",
-          "c_uid" => "VARCHAR(255) NOT NULL",
+          "c_uid" => "VARCHAR(1000) NOT NULL",
           "c_startdate" => "INT",
           "c_enddate" => "INT",
           "c_cycleenddate" => "INT",
@@ -775,7 +787,7 @@ function init_db_schema() {
           "c_screenname" => "VARCHAR(255)",
           "c_l" => "VARCHAR(255)",
           "c_mail" => "TEXT",
-          "c_o" => "VARCHAR(255)",
+          "c_o" => "VARCHAR(500)",
           "c_ou" => "VARCHAR(255)",
           "c_telephonenumber" => "VARCHAR(255)",
           "c_categories" => "VARCHAR(255)",
@@ -816,6 +828,25 @@ function init_db_schema() {
         "keys" => array(
           "primary" => array(
             "" => array("c_folder_id", "c_name")
+          )
+        ),
+        "attr" => "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC"
+      ),
+      "pushover" => array(
+        "cols" => array(
+          "username" => "VARCHAR(255) NOT NULL",
+          "key" => "VARCHAR(255) NOT NULL",
+          "token" => "VARCHAR(255) NOT NULL",
+          "attributes" => "JSON",
+          "title" => "TEXT",
+          "text" => "TEXT",
+          "senders" => "TEXT",
+          "senders_regex" => "TEXT",
+          "active" => "TINYINT(1) NOT NULL DEFAULT '1'"
+        ),
+        "keys" => array(
+          "primary" => array(
+            "" => array("username")
           )
         ),
         "attr" => "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC"
@@ -1074,7 +1105,6 @@ function init_db_schema() {
           elseif (strtolower($key_type) == 'fkey') {
             foreach ($key_content as $key_name => $key_values) {
               @list($table_ref, $field_ref) = explode('.', $key_values['ref']);
-              $fields = "`" . implode("`, `", $key_values) . "`";
               $sql .= "FOREIGN KEY `" . $key_name . "` (" . $key_values['col'] . ") REFERENCES `" . $table_ref . "` (`" . $field_ref . "`)
                 ON DELETE " . $key_values['delete'] . " ON UPDATE " . $key_values['update'] . ",";
             }
@@ -1099,26 +1129,31 @@ function init_db_schema() {
     $stmt = $pdo->query("SELECT NULL FROM `admin`"); 
     $num_results = count($stmt->fetchAll(PDO::FETCH_ASSOC));
     if ($num_results == 0) {
-    $stmt = $pdo->query("INSERT INTO `admin` (`username`, `password`, `superadmin`, `created`, `modified`, `active`)
+    $pdo->query("INSERT INTO `admin` (`username`, `password`, `superadmin`, `created`, `modified`, `active`)
       VALUES ('admin', '{SSHA256}K8eVJ6YsZbQCfuJvSUbaQRLr0HPLz5rC9IAp0PAFl0tmNDBkMDc0NDAyOTAxN2Rk', 1, NOW(), NOW(), 1)");
-    $stmt = $pdo->query("INSERT INTO `domain_admins` (`username`, `domain`, `created`, `active`)
+    $pdo->query("INSERT INTO `domain_admins` (`username`, `domain`, `created`, `active`)
         SELECT `username`, 'ALL', NOW(), 1 FROM `admin`
           WHERE superadmin='1' AND `username` NOT IN (SELECT `username` FROM `domain_admins`);");
-    $stmt = $pdo->query("DELETE FROM `admin` WHERE `username` NOT IN  (SELECT `username` FROM `domain_admins`);");
+    $pdo->query("DELETE FROM `admin` WHERE `username` NOT IN  (SELECT `username` FROM `domain_admins`);");
     }
     // Insert new DB schema version
-    $stmt = $pdo->query("REPLACE INTO `versions` (`application`, `version`) VALUES ('db_schema', '" . $db_version . "');"); 
+    $pdo->query("REPLACE INTO `versions` (`application`, `version`) VALUES ('db_schema', '" . $db_version . "');");
 
     // Fix dangling domain admins
-    $stmt = $pdo->query("DELETE FROM `admin` WHERE `superadmin` = 0 AND `username` NOT IN (SELECT `username`FROM `domain_admins`);");
-    $stmt = $pdo->query("DELETE FROM `da_acl` WHERE `username` NOT IN (SELECT `username`FROM `domain_admins`);");
+    $pdo->query("DELETE FROM `admin` WHERE `superadmin` = 0 AND `username` NOT IN (SELECT `username`FROM `domain_admins`);");
+    $pdo->query("DELETE FROM `da_acl` WHERE `username` NOT IN (SELECT `username`FROM `domain_admins`);");
 
     // Migrate attributes
-    $stmt = $pdo->query("UPDATE `mailbox` SET `attributes` = '{}' WHERE `attributes` = '' OR `attributes` IS NULL;");
-    $stmt = $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.force_pw_update', \"0\") WHERE JSON_EXTRACT(`attributes`, '$.force_pw_update') IS NULL;");
-    $stmt = $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.sogo_access', \"1\") WHERE JSON_EXTRACT(`attributes`, '$.sogo_access') IS NULL;");
-    $stmt = $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.mailbox_format', \"maildir:\") WHERE JSON_EXTRACT(`attributes`, '$.mailbox_format') IS NULL;");
-    $stmt = $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.quarantine_notification', \"never\") WHERE JSON_EXTRACT(`attributes`, '$.quarantine_notification') IS NULL;");
+    // pushover
+    $pdo->query("UPDATE `pushover` SET `attributes` = '{}' WHERE `attributes` = '' OR `attributes` IS NULL;");
+    $pdo->query("UPDATE `pushover` SET `attributes` =  JSON_SET(`attributes`, '$.evaluate_x_prio', \"0\") WHERE JSON_EXTRACT(`attributes`, '$.evaluate_x_prio') IS NULL;");
+    $pdo->query("UPDATE `pushover` SET `attributes` =  JSON_SET(`attributes`, '$.only_x_prio', \"0\") WHERE JSON_EXTRACT(`attributes`, '$.only_x_prio') IS NULL;");
+    // mailbox
+    $pdo->query("UPDATE `mailbox` SET `attributes` = '{}' WHERE `attributes` = '' OR `attributes` IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.force_pw_update', \"0\") WHERE JSON_EXTRACT(`attributes`, '$.force_pw_update') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.sogo_access', \"1\") WHERE JSON_EXTRACT(`attributes`, '$.sogo_access') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.mailbox_format', \"maildir:\") WHERE JSON_EXTRACT(`attributes`, '$.mailbox_format') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.quarantine_notification', \"never\") WHERE JSON_EXTRACT(`attributes`, '$.quarantine_notification') IS NULL;");
     foreach($tls_options as $tls_user => $tls_options) {
       $stmt = $pdo->prepare("UPDATE `mailbox` SET `attributes` = JSON_SET(`attributes`, '$.tls_enforce_in', :tls_enforce_in),
         `attributes` = JSON_SET(`attributes`, '$.tls_enforce_out', :tls_enforce_out)
@@ -1126,13 +1161,13 @@ function init_db_schema() {
       $stmt->execute(array(':tls_enforce_in' => $tls_options['tls_enforce_in'], ':tls_enforce_out' => $tls_options['tls_enforce_out'], ':username' => $tls_user));
     }
     // Set tls_enforce_* if still missing (due to deleted attrs for example)
-    $stmt = $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.tls_enforce_out', \"1\") WHERE JSON_EXTRACT(`attributes`, '$.tls_enforce_out') IS NULL;");
-    $stmt = $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.tls_enforce_in', \"1\") WHERE JSON_EXTRACT(`attributes`, '$.tls_enforce_in') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.tls_enforce_out', \"1\") WHERE JSON_EXTRACT(`attributes`, '$.tls_enforce_out') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.tls_enforce_in', \"1\") WHERE JSON_EXTRACT(`attributes`, '$.tls_enforce_in') IS NULL;");
     // Fix ACL
-    $stmt = $pdo->query("INSERT INTO `user_acl` (`username`) SELECT `username` FROM `mailbox` WHERE `kind` = '' AND NOT EXISTS (SELECT `username` FROM `user_acl`);");
-    $stmt = $pdo->query("INSERT INTO `da_acl` (`username`) SELECT DISTINCT `username` FROM `domain_admins` WHERE `username` != 'admin' AND NOT EXISTS (SELECT `username` FROM `da_acl`);");
+    $pdo->query("INSERT INTO `user_acl` (`username`) SELECT `username` FROM `mailbox` WHERE `kind` = '' AND NOT EXISTS (SELECT `username` FROM `user_acl`);");
+    $pdo->query("INSERT INTO `da_acl` (`username`) SELECT DISTINCT `username` FROM `domain_admins` WHERE `username` != 'admin' AND NOT EXISTS (SELECT `username` FROM `da_acl`);");
     // Fix domain_admins
-    $stmt = $pdo->query("DELETE FROM `domain_admins` WHERE `domain` = 'ALL';");
+    $pdo->query("DELETE FROM `domain_admins` WHERE `domain` = 'ALL';");
 
     if (php_sapi_name() == "cli") {
       echo "DB initialization completed" . PHP_EOL;

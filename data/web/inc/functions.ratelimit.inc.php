@@ -1,7 +1,6 @@
 <?php
 function ratelimit($_action, $_scope, $_data = null) {
   global $redis;
-  global $lang;
   $_data_log = $_data;
   switch ($_action) {
     case 'edit':
@@ -25,7 +24,7 @@ function ratelimit($_action, $_scope, $_data = null) {
           foreach ($objects as $object) {
             $rl_value = intval($_data['rl_value']);
             $rl_frame = $_data['rl_frame'];
-            if (!in_array($rl_frame, array('s', 'm', 'h'))) {
+            if (!in_array($rl_frame, array('s', 'm', 'h', 'd'))) {
               $_SESSION['return'][] = array(
                 'type' => 'danger',
                 'log' => array(__FUNCTION__, $_action, $_scope, $_data_log),
@@ -85,7 +84,7 @@ function ratelimit($_action, $_scope, $_data = null) {
           foreach ($objects as $object) {
             $rl_value = intval($_data['rl_value']);
             $rl_frame = $_data['rl_frame'];
-            if (!in_array($rl_frame, array('s', 'm', 'h'))) {
+            if (!in_array($rl_frame, array('s', 'm', 'h', 'd'))) {
               $_SESSION['return'][] = array(
                 'type' => 'danger',
                 'log' => array(__FUNCTION__, $_action, $_scope, $_data_log),
@@ -203,7 +202,15 @@ function ratelimit($_action, $_scope, $_data = null) {
         return false;
       }
       try {
-        if ($redis->exists($data['hash'])) {
+        $data_rllog = $redis->lRange('RL_LOG', 0, -1);
+        if ($data_rllog) {
+          foreach ($data_rllog as $json_line) {
+            if (preg_match('/' . $data['hash'] . '/i', $json_line)) {
+              $redis->lRem('RL_LOG', $json_line, 0);
+            }
+          }
+        }
+        if ($redis->type($data['hash']) == Redis::REDIS_HASH) {
           $redis->delete($data['hash']);
           $_SESSION['return'][] = array(
             'type' => 'success',

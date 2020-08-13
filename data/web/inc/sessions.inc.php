@@ -53,10 +53,16 @@ if (!empty($_SERVER['HTTP_X_API_KEY'])) {
     $skip_ip_check = ($api_return['skip_ip_check'] == 1);
     $remote = get_remote_ip(false);
     $allow_from = array_map('trim', preg_split( "/( |,|;|\n)/", $api_return['allow_from']));
-    if (in_array($remote, $allow_from) || $skip_ip_check === true) {
+    if ($skip_ip_check === true || ip_acl($remote, $allow_from)) {
       $_SESSION['mailcow_cc_username'] = 'API';
       $_SESSION['mailcow_cc_role'] = 'admin';
       $_SESSION['mailcow_cc_api'] = true;
+      if ($api_return['access'] == 'rw') {
+        $_SESSION['mailcow_cc_api_access'] = 'rw';
+      }
+      else {
+        $_SESSION['mailcow_cc_api_access'] = 'ro';
+      }
     }
     else {
       $redis->publish("F2B_CHANNEL", "mailcow UI: Invalid password for API_USER by " . $_SERVER['REMOTE_ADDR']);

@@ -25,17 +25,17 @@ while ! mysqladmin status --socket=/var/run/mysqld/mysqld.sock -u${DBUSER} -p${D
   sleep 2
 done
 
-until [[ $(redis-cli -h redis-mailcow PING) == "PONG" ]]; do
-  echo "Waiting for Redis..."
-  sleep 2
-done
-
 # Do not attempt to write to slave
 if [[ ! -z ${REDIS_SLAVEOF_IP} ]]; then
   REDIS_CMDLINE="redis-cli -h ${REDIS_SLAVEOF_IP} -p ${REDIS_SLAVEOF_PORT}"
 else
   REDIS_CMDLINE="redis-cli -h redis -p 6379"
 fi
+
+until [[ $(${REDIS_CMDLINE} PING) == "PONG" ]]; do
+  echo "Waiting for Redis..."
+  sleep 2
+done
 
 ${REDIS_CMDLINE} DEL F2B_RES > /dev/null
 
@@ -88,6 +88,7 @@ log_msg() {
 
 function mail_error() {
   [[ -z ${1} ]] && return 1
+  # If exists, body will be the content of "/tmp/${1}", even if ${2} is set
   [[ -z ${2} ]] && BODY="Service was restarted on $(date), please check your mailcow installation." || BODY="$(date) - ${2}"
   WATCHDOG_NOTIFY_EMAIL=$(echo "${WATCHDOG_NOTIFY_EMAIL}" | sed 's/"//;s|"$||')
   # Some exceptions for subject and body formats
@@ -113,6 +114,7 @@ function mail_error() {
       --charset=UTF-8 \
       --subject="${SUBJECT}" \
       --body-plain="${BODY}" \
+      --add-header="X-Priority: 1" \
       --to=${rcpt} \
       --from="watchdog@${MAILCOW_HOSTNAME}" \
       --hello-host=${MAILCOW_HOSTNAME} \
@@ -134,7 +136,7 @@ get_container_ip() {
     else
       sleep 0.5
       # get long container id for exact match
-      CONTAINER_ID=($(curl --silent --insecure https://dockerapi/containers/json | jq -r ".[] | {name: .Config.Labels[\"com.docker.compose.service\"], id: .Id}" | jq -rc "select( .name | tostring == \"${1}\") | .id"))
+      CONTAINER_ID=($(curl --silent --insecure https://dockerapi/containers/json | jq -r ".[] | {name: .Config.Labels[\"com.docker.compose.service\"], project: .Config.Labels[\"com.docker.compose.project\"], id: .Id}" | jq -rc "select( .name | tostring == \"${1}\") | select( .project | tostring | contains(\"${COMPOSE_PROJECT_NAME}\")) | .id"))
       # returned id can have multiple elements (if scaled), shuffle for random test
       CONTAINER_ID=($(printf "%s\n" "${CONTAINER_ID[@]}" | shuf))
       if [[ ! -z ${CONTAINER_ID} ]]; then
@@ -292,7 +294,6 @@ mysql_checks() {
   trap "[ ${err_count} -gt 1 ] && err_count=$(( ${err_count} - 2 ))" USR1
   while [ ${err_count} -lt ${THRESHOLD} ]; do
     touch /tmp/mysql-mailcow; echo "$(tail -50 /tmp/mysql-mailcow)" > /tmp/mysql-mailcow
-    host_ip=$(get_container_ip mysql-mailcow)
     err_c_cur=${err_count}
     /usr/lib/nagios/plugins/check_mysql -s /var/run/mysqld/mysqld.sock -u ${DBUSER} -p ${DBPASS} -d ${DBNAME} 2>> /tmp/mysql-mailcow 1>&2; err_count=$(( ${err_count} + $? ))
     /usr/lib/nagios/plugins/check_mysql_query -s /var/run/mysqld/mysqld.sock -u ${DBUSER} -p ${DBPASS} -d ${DBNAME} -q "SELECT COUNT(*) FROM information_schema.tables" 2>> /tmp/mysql-mailcow 1>&2; err_count=$(( ${err_count} + $? ))
@@ -302,6 +303,30 @@ mysql_checks() {
     if [[ $? == 10 ]]; then
       diff_c=0
       sleep 1
+    else
+      diff_c=0
+      sleep $(( ( RANDOM % 60 ) + 20 ))
+    fi
+  done
+  return 1
+}
+
+mysql_repl_checks() {
+  err_count=0
+  diff_c=0
+  THRESHOLD=${MYSQL_REPLICATION_THRESHOLD}
+  # Reduce error count by 2 after restarting an unhealthy container
+  trap "[ ${err_count} -gt 1 ] && err_count=$(( ${err_count} - 2 ))" USR1
+  while [ ${err_count} -lt ${THRESHOLD} ]; do
+    touch /tmp/mysql_repl_checks; echo "$(tail -50 /tmp/mysql_repl_checks)" > /tmp/mysql_repl_checks
+    err_c_cur=${err_count}
+    /usr/lib/nagios/plugins/check_mysql_slavestatus.sh -S /var/run/mysqld/mysqld.sock -u root -p ${DBROOT} 2>> /tmp/mysql_repl_checks 1>&2; err_count=$(( ${err_count} + $? ))
+    [ ${err_c_cur} -eq ${err_count} ] && [ ! $((${err_count} - 1)) -lt 0 ] && err_count=$((${err_count} - 1)) diff_c=1
+    [ ${err_c_cur} -ne ${err_count} ] && diff_c=$(( ${err_c_cur} - ${err_count} ))
+    progress "MySQL/MariaDB replication" ${THRESHOLD} $(( ${THRESHOLD} - ${err_count} )) ${diff_c}
+    if [[ $? == 10 ]]; then
+      diff_c=0
+      sleep 60
     else
       diff_c=0
       sleep $(( ( RANDOM % 60 ) + 20 ))
@@ -415,6 +440,33 @@ dovecot_checks() {
   return 1
 }
 
+dovecot_repl_checks() {
+  err_count=0
+  diff_c=0
+  THRESHOLD=${DOVECOT_REPL_THRESHOLD}
+  D_REPL_STATUS=$(redis-cli -h redis -r GET DOVECOT_REPL_HEALTH)
+  # Reduce error count by 2 after restarting an unhealthy container
+  trap "[ ${err_count} -gt 1 ] && err_count=$(( ${err_count} - 2 ))" USR1
+  while [ ${err_count} -lt ${THRESHOLD} ]; do
+    err_c_cur=${err_count}
+    D_REPL_STATUS=$(redis-cli --raw -h redis GET DOVECOT_REPL_HEALTH)
+    if [[ "${D_REPL_STATUS}" != "1" ]]; then
+      err_count=$(( ${err_count} + 1 ))
+    fi
+    [ ${err_c_cur} -eq ${err_count} ] && [ ! $((${err_count} - 1)) -lt 0 ] && err_count=$((${err_count} - 1)) diff_c=1
+    [ ${err_c_cur} -ne ${err_count} ] && diff_c=$(( ${err_c_cur} - ${err_count} ))
+    progress "Dovecot replication" ${THRESHOLD} $(( ${THRESHOLD} - ${err_count} )) ${diff_c}
+    if [[ $? == 10 ]]; then
+      diff_c=0
+      sleep 60
+    else
+      diff_c=0
+      sleep $(( ( RANDOM % 60 ) + 20 ))
+    fi
+  done
+  return 1
+}
+
 phpfpm_checks() {
   err_count=0
   diff_c=0
@@ -465,6 +517,35 @@ ratelimit_checks() {
     if [[ $? == 10 ]]; then
       diff_c=0
       sleep 1
+    else
+      diff_c=0
+      sleep $(( ( RANDOM % 60 ) + 20 ))
+    fi
+  done
+  return 1
+}
+
+mailq_checks() {
+  err_count=0
+  diff_c=0
+  THRESHOLD=${MAILQ_THRESHOLD}
+  # Reduce error count by 2 after restarting an unhealthy container
+  trap "[ ${err_count} -gt 1 ] && err_count=$(( ${err_count} - 2 ))" USR1
+  while [ ${err_count} -lt ${THRESHOLD} ]; do
+    touch /tmp/mail_queue_status; echo "$(tail -50 /tmp/mail_queue_status)" > /tmp/mail_queue_status
+    MAILQ_LOG_STATUS=$(find /var/spool/postfix/deferred -type f | wc -l)
+    echo "Mail queue contains ${MAILQ_LOG_STATUS} items (critical limit is ${MAILQ_CRIT}) at $(date)" >> /tmp/mail_queue_status
+    err_c_cur=${err_count}
+    if [ ${MAILQ_LOG_STATUS} -ge ${MAILQ_CRIT} ]; then
+      err_count=$(( ${err_count} + 1 ))
+      echo "Mail queue contains ${MAILQ_LOG_STATUS} items (critical limit is ${MAILQ_CRIT}) at $(date)" >> /tmp/mail_queue_status
+    fi
+    [ ${err_c_cur} -eq ${err_count} ] && [ ! $((${err_count} - 1)) -lt 0 ] && err_count=$((${err_count} - 1)) diff_c=1
+    [ ${err_c_cur} -ne ${err_count} ] && diff_c=$(( ${err_c_cur} - ${err_count} ))
+    progress "Mail queue" ${THRESHOLD} $(( ${THRESHOLD} - ${err_count} )) ${diff_c}
+    if [[ $? == 10 ]]; then
+      diff_c=0
+      sleep 60
     else
       diff_c=0
       sleep $(( ( RANDOM % 60 ) + 20 ))
@@ -553,10 +634,10 @@ ipv6nat_checks() {
   while [ ${err_count} -lt ${THRESHOLD} ]; do
     err_c_cur=${err_count}
     CONTAINERS=$(curl --silent --insecure https://dockerapi/containers/json)
-    IPV6NAT_CONTAINER_ID=$(echo ${CONTAINERS} | jq -r ".[] | {name: .Config.Labels[\"com.docker.compose.service\"], id: .Id}" | jq -rc "select( .name | tostring | contains(\"ipv6nat-mailcow\")) | .id")
+    IPV6NAT_CONTAINER_ID=$(echo ${CONTAINERS} | jq -r ".[] | {name: .Config.Labels[\"com.docker.compose.service\"], project: .Config.Labels[\"com.docker.compose.project\"], id: .Id}" | jq -rc "select( .name | tostring | contains(\"ipv6nat-mailcow\")) | select( .project | tostring | contains(\"${COMPOSE_PROJECT_NAME}\")) | .id")
     if [[ ! -z ${IPV6NAT_CONTAINER_ID} ]]; then
-      LATEST_STARTED="$(echo ${CONTAINERS} | jq -r ".[] | {name: .Config.Labels[\"com.docker.compose.service\"], StartedAt: .State.StartedAt}" | jq -rc "select( .name | tostring | contains(\"ipv6nat-mailcow\") | not)" | jq -rc .StartedAt | xargs -n1 date +%s -d | sort | tail -n1)"
-      LATEST_IPV6NAT="$(echo ${CONTAINERS} | jq -r ".[] | {name: .Config.Labels[\"com.docker.compose.service\"], StartedAt: .State.StartedAt}" | jq -rc "select( .name | tostring | contains(\"ipv6nat-mailcow\"))" | jq -rc .StartedAt | xargs -n1 date +%s -d | sort | tail -n1)"
+      LATEST_STARTED="$(echo ${CONTAINERS} | jq -r ".[] | {name: .Config.Labels[\"com.docker.compose.service\"], project: .Config.Labels[\"com.docker.compose.project\"], StartedAt: .State.StartedAt}" | jq -rc "select( .project | tostring | contains(\"${COMPOSE_PROJECT_NAME}\")) | select( .name | tostring | contains(\"ipv6nat-mailcow\") | not)" | jq -rc .StartedAt | xargs -n1 date +%s -d | sort | tail -n1)"
+      LATEST_IPV6NAT="$(echo ${CONTAINERS} | jq -r ".[] | {name: .Config.Labels[\"com.docker.compose.service\"], project: .Config.Labels[\"com.docker.compose.project\"], StartedAt: .State.StartedAt}" | jq -rc "select( .project | tostring | contains(\"${COMPOSE_PROJECT_NAME}\")) | select( .name | tostring | contains(\"ipv6nat-mailcow\"))" | jq -rc .StartedAt | xargs -n1 date +%s -d | sort | tail -n1)"
       DIFFERENCE_START_TIME=$(expr ${LATEST_IPV6NAT} - ${LATEST_STARTED} 2>/dev/null)
       if [[ "${DIFFERENCE_START_TIME}" -lt 30 ]]; then
         err_count=$(( ${err_count} + 1 ))
@@ -670,6 +751,20 @@ echo "Spawned external_checks with PID ${PID}"
 BACKGROUND_TASKS+=(${PID})
 fi
 
+if [[ ${WATCHDOG_MYSQL_REPLICATION_CHECKS} =~ ^([yY][eE][sS]|[yY])+$ ]]; then
+(
+while true; do
+  if ! mysql_repl_checks; then
+    log_msg "MySQL replication check hit error limit"
+    echo mysql_repl_checks > /tmp/com_pipe
+  fi
+done
+) &
+PID=$!
+echo "Spawned mysql_repl_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
+fi
+
 (
 while true; do
   if ! mysql_checks; then
@@ -706,6 +801,7 @@ PID=$!
 echo "Spawned phpfpm_checks with PID ${PID}"
 BACKGROUND_TASKS+=(${PID})
 
+if [[ "${SKIP_SOGO}" =~ ^([nN][oO]|[nN])+$ ]]; then
 (
 while true; do
   if ! sogo_checks; then
@@ -717,6 +813,7 @@ done
 PID=$!
 echo "Spawned sogo_checks with PID ${PID}"
 BACKGROUND_TASKS+=(${PID})
+fi
 
 if [ ${CHECK_UNBOUND} -eq 1 ]; then
 (
@@ -760,6 +857,18 @@ BACKGROUND_TASKS+=(${PID})
 
 (
 while true; do
+  if ! mailq_checks; then
+    log_msg "Mail queue hit error limit"
+    echo mail_queue_status > /tmp/com_pipe
+  fi
+done
+) &
+PID=$!
+echo "Spawned mailq_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
+
+(
+while true; do
   if ! dovecot_checks; then
     log_msg "Dovecot hit error limit"
     echo dovecot-mailcow > /tmp/com_pipe
@@ -768,6 +877,18 @@ done
 ) &
 PID=$!
 echo "Spawned dovecot_checks with PID ${PID}"
+BACKGROUND_TASKS+=(${PID})
+
+(
+while true; do
+  if ! dovecot_repl_checks; then
+    log_msg "Dovecot hit error limit"
+    echo dovecot_repl_checks > /tmp/com_pipe
+  fi
+done
+) &
+PID=$!
+echo "Spawned dovecot_repl_checks with PID ${PID}"
 BACKGROUND_TASKS+=(${PID})
 
 (
@@ -882,11 +1003,24 @@ while true; do
   if [[ ${com_pipe_answer} == "ratelimit" ]]; then
     log_msg "At least one ratelimit was applied"
     [[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]] && mail_error "${com_pipe_answer}"
+  elif [[ ${com_pipe_answer} == "mail_queue_status" ]]; then
+    log_msg "Mail queue status is critical"
+    [[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]] && mail_error "${com_pipe_answer}"
   elif [[ ${com_pipe_answer} == "external_checks" ]]; then
     log_msg "Your mailcow is an open relay!"
+    # Define $2 to override message text, else print service was restarted at ...
     [[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]] && mail_error "${com_pipe_answer}" "Please stop mailcow now and check your network configuration!"
+  elif [[ ${com_pipe_answer} == "mysql_repl_checks" ]]; then
+    log_msg "MySQL replication is not working properly"
+    # Define $2 to override message text, else print service was restarted at ...
+    [[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]] && mail_error "${com_pipe_answer}" "Please check the SQL replication status"
+  elif [[ ${com_pipe_answer} == "dovecot_repl_checks" ]]; then
+    log_msg "Dovecot replication is not working properly"
+    # Define $2 to override message text, else print service was restarted at ...
+    [[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]] && mail_error "${com_pipe_answer}" "Please check the Dovecot replicator status"
   elif [[ ${com_pipe_answer} == "acme-mailcow" ]]; then
     log_msg "acme-mailcow did not complete successfully"
+    # Define $2 to override message text, else print service was restarted at ...
     [[ ! -z ${WATCHDOG_NOTIFY_EMAIL} ]] && mail_error "${com_pipe_answer}" "Please check acme-mailcow for further information."
   elif [[ ${com_pipe_answer} == "fail2ban" ]]; then
     F2B_RES=($(timeout 4s ${REDIS_CMDLINE} --raw GET F2B_RES 2> /dev/null))
@@ -903,7 +1037,7 @@ while true; do
   elif [[ ${com_pipe_answer} =~ .+-mailcow ]]; then
     kill -STOP ${BACKGROUND_TASKS[*]}
     sleep 10
-    CONTAINER_ID=$(curl --silent --insecure https://dockerapi/containers/json | jq -r ".[] | {name: .Config.Labels[\"com.docker.compose.service\"], id: .Id}" | jq -rc "select( .name | tostring | contains(\"${com_pipe_answer}\")) | .id")
+    CONTAINER_ID=$(curl --silent --insecure https://dockerapi/containers/json | jq -r ".[] | {name: .Config.Labels[\"com.docker.compose.service\"], project: .Config.Labels[\"com.docker.compose.project\"], id: .Id}" | jq -rc "select( .name | tostring | contains(\"${com_pipe_answer}\")) | select( .project | tostring | contains(\"${COMPOSE_PROJECT_NAME}\")) | .id")
     if [[ ! -z ${CONTAINER_ID} ]]; then
       if [[ "${com_pipe_answer}" == "php-fpm-mailcow" ]]; then
         HAS_INITDB=$(curl --silent --insecure -XPOST https://dockerapi/containers/${CONTAINER_ID}/top | jq '.msg.Processes[] | contains(["php -c /usr/local/etc/php -f /web/inc/init_db.inc.php"])' | grep true)

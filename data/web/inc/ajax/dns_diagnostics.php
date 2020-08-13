@@ -94,7 +94,7 @@ if ($_SESSION['mailcow_cc_role'] == "admin") {
     $records[] = array(
       $mailcow_hostname,
       'AAAA',
-      $ip6
+      expand_ipv6($ip6)
     );
     $records[] = array(
       $ptr6,
@@ -292,6 +292,7 @@ $data_field = array(
   'TLSA' => 'data',
   'TXT' => 'txt',
 );
+
 ?>
 <div class="table-responsive" id="dnstable">
   <table class="table table-striped">
@@ -302,7 +303,7 @@ $data_field = array(
       <th><?=$lang['diagnostics']['dns_records_status'];?></th>
     </tr>
 <?php
-foreach ($records as $record) {
+foreach ($records as &$record) {
   $record[1] = strtoupper($record[1]);
   $state = state_missing;
   if ($record[1] == 'TLSA') {
@@ -319,6 +320,12 @@ foreach ($records as $record) {
   }
   else {
     $currents = dns_get_record($record[0], $record_types[$record[1]]);
+    if ($record[0] == $mailcow_hostname && ($record[1] == "A" || $record[1] == "AAAA")) {
+      if (!empty(dns_get_record($record[0], DNS_CNAME))) {
+        $currents[0]['ip'] = state_missing . ' <b>(CNAME)</b>';
+        $currents[0]['ipv6'] = state_missing . ' <b>(CNAME)</b>';
+      }
+    }
     if ($record[1] == 'SRV') {
       foreach ($currents as &$current) {
         if ($current['target'] == '') {
@@ -335,6 +342,11 @@ foreach ($records as $record) {
       }
       unset($current);
     }
+    elseif ($record[1] == 'AAAA') {
+      foreach ($currents as &$current) {
+        $current['ipv6'] = expand_ipv6($current['ipv6']);
+      }
+    }
   }
 
   if ($record[1] == 'CNAME' && count($currents) == 0) {
@@ -346,8 +358,8 @@ foreach ($records as $record) {
         $currents = array(array('host' => $record[0], 'class' => 'IN', 'type' => 'CNAME', 'target' => $record[2]));
         $aaaa = dns_get_record($record[0], DNS_AAAA);
         $cname = dns_get_record($record[2], DNS_AAAA);
-        if (count($aaaa) == 0 || count($cname) == 0 || $aaaa[0]['ipv6'] != $cname[0]['ipv6']) {
-          $currents[0]['target'] = $aaaa[0]['ipv6'] . ' <sup>1</sup>';
+        if (count($aaaa) == 0 || count($cname) == 0 || expand_ipv6($aaaa[0]['ipv6']) != expand_ipv6($cname[0]['ipv6'])) {
+          $currents[0]['target'] = expand_ipv6($aaaa[0]['ipv6']) . ' <sup>1</sup>';
         }
       }
       else {
@@ -368,7 +380,7 @@ foreach ($records as $record) {
       $record[2] == $spf_link) {
         $state = state_nomatch;
         $rslt = get_spf_allowed_hosts($record[0]);
-        if(in_array($ip, $rslt) && in_array($ip6, $rslt)){
+        if(in_array($ip, $rslt) && in_array(expand_ipv6($ip6), $rslt)){
             $state = state_good;
         }
         $state .= '<br />' . $current[$data_field[$current['type']]].state_optional;
@@ -376,8 +388,8 @@ foreach ($records as $record) {
     elseif ($current['type'] == 'TXT' &&
       stripos($current['txt'], 'v=dkim') === 0 &&
       stripos($record[2], 'v=dkim') === 0) {
-        preg_match('/v=DKIM1;.*k=rsa;.*p=(.*)/i', $current[$data_field[$current['type']]], $dkim_matches_current);
-        preg_match('/v=DKIM1;.*k=rsa;.*p=(.*)/i', $record[2], $dkim_matches_good);
+        preg_match('/v=DKIM1;.*k=rsa;.*p=([^;]*).*/i', $current[$data_field[$current['type']]], $dkim_matches_current);
+        preg_match('/v=DKIM1;.*k=rsa;.*p=([^;]*).*/i', $record[2], $dkim_matches_good);
         if ($dkim_matches_current[1] == $dkim_matches_good[1]) {
           $state = state_good;
         }
@@ -411,9 +423,51 @@ foreach ($records as $record) {
     <td class="dns-found">%s</td>
     <td class="dns-recommended">%s</td>
   </tr>', $record[0], $record[1], $record[2], $state);
+  $record[3] = explode('<br />', $state);
 }
+unset($record);
+
+$dns_data = sprintf("\$ORIGIN %s.\n", $domain);
+foreach ($records as $record) {
+  if ($domain == substr($record[0], -strlen($domain))) {
+    $label = substr($record[0], 0, -strlen($domain)-1);
+    $val = $record[2];
+    if (strlen($label) == 0) {
+      $label = "@";
+    }
+    $vals = array();
+    if (strpos($val, "<a") !== FALSE) {
+      if(is_array($record[3]) && count($record[3]) == 1 && $record[3][0] == state_optional) {
+        $record[3][0] = "**TODO**";
+        $label = ';' . $label;
+      }
+      foreach ($record[3] as $val) {
+        $val = str_replace(state_optional, '', $val);
+        $val = str_replace(state_good, '', $val);
+        if (strlen($val) > 0) {
+          $vals[] = sprintf("%s\tIN\t%s\t%s\n", $label, $record[1], $val);
+        }
+      }
+    }
+    else {
+      $vals[] = sprintf("%s\tIN\t%s\t%s\n", $label, $record[1], $val);
+    }
+    foreach ($vals as $val) {
+      $dns_data .= str_replace($domain, $domain . '.', $val);
+    }
+  }
+}
+
 ?>
   </table>
+  <a id='download-zonefile' data-zonefile="<?=base64_encode($dns_data);?>" download='<?=$_GET['domain'];?>.txt' type='text/csv'>Download</a>
+  <script>
+      var zonefile_dl_link = document.getElementById('download-zonefile');
+      var zonefile = atob(zonefile_dl_link.getAttribute('data-zonefile'));
+      var data = new Blob([zonefile]);
+      var download_zonefile_link = document.getElementById('download-zonefile');
+      download_zonefile_link.href = URL.createObjectURL(data);
+  </script>
 </div>
 <p class="help-block">
 <sup>1</sup> <?=$lang['diagnostics']['cname_from_a'];?><br />

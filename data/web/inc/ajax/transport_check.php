@@ -1,6 +1,9 @@
 <?php
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/prerequisites.inc.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/vars.inc.php';
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
 
 error_reporting(0);
 if (isset($_SESSION['mailcow_cc_role']) && $_SESSION['mailcow_cc_role'] == "admin") {
@@ -50,8 +53,8 @@ if (isset($_SESSION['mailcow_cc_role']) && $_SESSION['mailcow_cc_role'] == "admi
         $port = null;
       }
       else {
-        $port = substr($hostname_w_port, strrpos($hostname_w_port, ':') + 1);
         $hostname = preg_replace('/'. preg_quote(':' . $port, '/') . '$/', '', $hostname_w_port);
+        $port = null;
       }
     }
     // Try to get MX if host is not [host]
