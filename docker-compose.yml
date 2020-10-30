@@ -290,8 +290,6 @@ services:
 
     memcached-mailcow:
       image: memcached:alpine
-      environment:
-        - TZ=${TZ}
       restart: always
       environment:
         - TZ=${TZ}
@@ -479,8 +477,6 @@ services:
         - TZ=${TZ}
       volumes:
         - /var/run/docker.sock:/var/run/docker.sock:ro
-      security_opt:
-        - label:disable
       networks:
         mailcow-network:
           aliases:
