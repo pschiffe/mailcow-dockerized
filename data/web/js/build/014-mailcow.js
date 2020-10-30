@@ -29,8 +29,8 @@ $(document).ready(function() {
       return String.fromCharCode(s.charCodeAt(0) + (s.toLowerCase() < 'n' ? 13 : -13))
     })
   }
-  $(".footer-text-enc").html(function(){
-    return str_rot13($(".footer-text-enc").html())
+  $(".rot-enc").html(function(){
+    return str_rot13($(this).html())
   });
   // https://stackoverflow.com/questions/4399005/implementing-jquerys-shake-effect-with-animate
   function shake(div,interval,distance,times) {
@@ -145,6 +145,12 @@ $(document).ready(function() {
       $(this).removeAttr("data-action");
       $(this).click(function(event) {
         event.preventDefault();
+      });
+    }
+    if ($(this).is("select")) {
+      $(this).selectpicker('destroy');
+      $(this).replaceWith(function() { 
+        return '<label class="control-label"><b>' + this.innerText + '</b></label>'; 
       });
     }
     if ($(this).hasClass('btn-group')) {

@@ -3,7 +3,7 @@ function init_db_schema() {
   try {
     global $pdo;
 
-    $db_version = "14072020_1600";
+    $db_version = "24102020_0900";
 
     $stmt = $pdo->query("SHOW TABLES LIKE 'versions'");
     $num_results = count($stmt->fetchAll(PDO::FETCH_ASSOC));
@@ -260,6 +260,7 @@ function init_db_schema() {
           "ip" => "VARCHAR(50)",
           "action" => "CHAR(20) NOT NULL DEFAULT 'unknown'",
           "symbols" => "JSON",
+          "fuzzy_hashes" => "JSON",
           "sender" => "VARCHAR(255) NOT NULL DEFAULT 'unknown'",
           "rcpt" => "VARCHAR(255)",
           "msg" => "LONGTEXT",
@@ -280,6 +281,7 @@ function init_db_schema() {
           "username" => "VARCHAR(255) NOT NULL",
           "password" => "VARCHAR(255) NOT NULL",
           "name" => "VARCHAR(255)",
+          "description" => "VARCHAR(255)",
           // mailbox_path_prefix is followed by domain/local_part/
           "mailbox_path_prefix" => "VARCHAR(150) DEFAULT '/var/vmail/'",
           "quota" => "BIGINT(20) NOT NULL DEFAULT '102400'",
@@ -541,7 +543,10 @@ function init_db_schema() {
           "spam_policy" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "extend_sender_acl" => "TINYINT(1) NOT NULL DEFAULT '0'",
           "unlimited_quota" => "TINYINT(1) NOT NULL DEFAULT '0'",
+          "protocol_access" => "TINYINT(1) NOT NULL DEFAULT '1'",
+          "smtp_ip_access" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "alias_domains" => "TINYINT(1) NOT NULL DEFAULT '0'",
+          "domain_desc" => "TINYINT(1) NOT NULL DEFAULT '0'"
           ),
         "keys" => array(
           "primary" => array(
@@ -1146,14 +1151,17 @@ function init_db_schema() {
     // Migrate attributes
     // pushover
     $pdo->query("UPDATE `pushover` SET `attributes` = '{}' WHERE `attributes` = '' OR `attributes` IS NULL;");
-    $pdo->query("UPDATE `pushover` SET `attributes` =  JSON_SET(`attributes`, '$.evaluate_x_prio', \"0\") WHERE JSON_EXTRACT(`attributes`, '$.evaluate_x_prio') IS NULL;");
-    $pdo->query("UPDATE `pushover` SET `attributes` =  JSON_SET(`attributes`, '$.only_x_prio', \"0\") WHERE JSON_EXTRACT(`attributes`, '$.only_x_prio') IS NULL;");
+    $pdo->query("UPDATE `pushover` SET `attributes` =  JSON_SET(`attributes`, '$.evaluate_x_prio', \"0\") WHERE JSON_VALUE(`attributes`, '$.evaluate_x_prio') IS NULL;");
+    $pdo->query("UPDATE `pushover` SET `attributes` =  JSON_SET(`attributes`, '$.only_x_prio', \"0\") WHERE JSON_VALUE(`attributes`, '$.only_x_prio') IS NULL;");
     // mailbox
     $pdo->query("UPDATE `mailbox` SET `attributes` = '{}' WHERE `attributes` = '' OR `attributes` IS NULL;");
-    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.force_pw_update', \"0\") WHERE JSON_EXTRACT(`attributes`, '$.force_pw_update') IS NULL;");
-    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.sogo_access', \"1\") WHERE JSON_EXTRACT(`attributes`, '$.sogo_access') IS NULL;");
-    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.mailbox_format', \"maildir:\") WHERE JSON_EXTRACT(`attributes`, '$.mailbox_format') IS NULL;");
-    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.quarantine_notification', \"never\") WHERE JSON_EXTRACT(`attributes`, '$.quarantine_notification') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.force_pw_update', \"0\") WHERE JSON_VALUE(`attributes`, '$.force_pw_update') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.sogo_access', \"1\") WHERE JSON_VALUE(`attributes`, '$.sogo_access') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.imap_access', \"1\") WHERE JSON_VALUE(`attributes`, '$.imap_access') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.pop3_access', \"1\") WHERE JSON_VALUE(`attributes`, '$.pop3_access') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.smtp_access', \"1\") WHERE JSON_VALUE(`attributes`, '$.smtp_access') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.mailbox_format', \"maildir:\") WHERE JSON_VALUE(`attributes`, '$.mailbox_format') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.quarantine_notification', \"never\") WHERE JSON_VALUE(`attributes`, '$.quarantine_notification') IS NULL;");
     foreach($tls_options as $tls_user => $tls_options) {
       $stmt = $pdo->prepare("UPDATE `mailbox` SET `attributes` = JSON_SET(`attributes`, '$.tls_enforce_in', :tls_enforce_in),
         `attributes` = JSON_SET(`attributes`, '$.tls_enforce_out', :tls_enforce_out)
@@ -1161,8 +1169,8 @@ function init_db_schema() {
       $stmt->execute(array(':tls_enforce_in' => $tls_options['tls_enforce_in'], ':tls_enforce_out' => $tls_options['tls_enforce_out'], ':username' => $tls_user));
     }
     // Set tls_enforce_* if still missing (due to deleted attrs for example)
-    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.tls_enforce_out', \"1\") WHERE JSON_EXTRACT(`attributes`, '$.tls_enforce_out') IS NULL;");
-    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.tls_enforce_in', \"1\") WHERE JSON_EXTRACT(`attributes`, '$.tls_enforce_in') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.tls_enforce_out', \"1\") WHERE JSON_VALUE(`attributes`, '$.tls_enforce_out') IS NULL;");
+    $pdo->query("UPDATE `mailbox` SET `attributes` =  JSON_SET(`attributes`, '$.tls_enforce_in', \"1\") WHERE JSON_VALUE(`attributes`, '$.tls_enforce_in') IS NULL;");
     // Fix ACL
     $pdo->query("INSERT INTO `user_acl` (`username`) SELECT `username` FROM `mailbox` WHERE `kind` = '' AND NOT EXISTS (SELECT `username` FROM `user_acl`);");
     $pdo->query("INSERT INTO `da_acl` (`username`) SELECT DISTINCT `username` FROM `domain_admins` WHERE `username` != 'admin' AND NOT EXISTS (SELECT `username` FROM `da_acl`);");
