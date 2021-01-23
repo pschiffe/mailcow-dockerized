@@ -17,11 +17,11 @@ if [[ "$(uname -r)" =~ ^4\.4\. ]]; then
 fi
 
 if grep --help 2>&1 | grep -q -i "busybox"; then
-  echo "BusybBox grep detected, please install gnu grep, \"apk add --no-cache --upgrade grep\""
+  echo "BusyBox grep detected, please install gnu grep, \"apk add --no-cache --upgrade grep\""
   exit 1
 fi
 if cp --help 2>&1 | grep -q -i "busybox"; then
-  echo "BusybBox cp detected, please install coreutils, \"apk add --no-cache --upgrade coreutils\""
+  echo "BusyBox cp detected, please install coreutils, \"apk add --no-cache --upgrade coreutils\""
   exit 1
 fi
 
@@ -117,6 +117,11 @@ cat << EOF > mailcow.conf
 
 MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
 
+# Password hash algorithm
+# Only certain password hash algorithm are supported. For a fully list of supported schemes,
+# see https://mailcow.github.io/mailcow-dockerized-docs/model-passwd/
+MAILCOW_PASS_SCHEME=BLF-CRYPT
+
 # ------------------------------
 # SQL database configuration
 # ------------------------------
@@ -138,18 +143,20 @@ DBROOT=$(LC_ALL=C </dev/urandom tr -dc A-Za-z0-9 | head -c 28)
 # If you use a proxy within Docker, point it to the ports you set below.
 # Do _not_ use IP:PORT in HTTP(S)_BIND or HTTP(S)_PORT
 # IMPORTANT: Do not use port 8081, 9081 or 65510!
+# Example: HTTP_BIND=1.2.3.4
+# For IPv6 see https://mailcow.github.io/mailcow-dockerized-docs/firststeps-ip_bindings/
 
 HTTP_PORT=80
-HTTP_BIND=0.0.0.0
+HTTP_BIND=
 
 HTTPS_PORT=443
-HTTPS_BIND=0.0.0.0
+HTTPS_BIND=
 
 # ------------------------------
 # Other bindings
 # ------------------------------
 # You should leave that alone
-# Format: 11.22.33.44:25 or 0.0.0.0:465 etc.
+# Format: 11.22.33.44:25 or 12.34.56.78:465 etc.
 
 SMTP_PORT=25
 SMTPS_PORT=465
@@ -165,6 +172,8 @@ SOLR_PORT=127.0.0.1:18983
 REDIS_PORT=127.0.0.1:7654
 
 # Your timezone
+# See https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for a list of timezones
+# Use the row named 'TZ database name' + pay attention for 'Notes' row
 
 TZ=${MAILCOW_TZ}
 

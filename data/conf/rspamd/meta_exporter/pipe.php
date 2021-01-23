@@ -68,6 +68,10 @@ if (empty($sender)) {
   $sender = 'empty-env-from@localhost';
 }
 
+if ($fuzzy == 'unknown') {
+  $fuzzy = '[]';
+}
+
 try {
   $max_size = (int)$redis->Get('Q_MAX_SIZE');
   if (($max_size * 1048576) < $raw_size) {

@@ -57,7 +57,7 @@ services:
             - redis
 
     clamd-mailcow:
-      image: mailcow/clamd:1.37
+      image: mailcow/clamd:1.38
       restart: always
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
@@ -72,7 +72,7 @@ services:
             - clamd
 
     rspamd-mailcow:
-      image: mailcow/rspamd:1.74
+      image: mailcow/rspamd:1.76
       stop_grace_period: 30s
       depends_on:
         - dovecot-mailcow
@@ -93,9 +93,9 @@ services:
         - ./data/conf/rspamd/rspamd.conf.override:/etc/rspamd/rspamd.conf.override:Z
         - rspamd-vol-1:/var/lib/rspamd:z
       restart: always
+      hostname: rspamd
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
-      hostname: rspamd
       networks:
         mailcow-network:
           aliases:
@@ -134,6 +134,7 @@ services:
         - DBUSER=${DBUSER}
         - DBPASS=${DBPASS}
         - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
+        - MAILCOW_PASS_SCHEME=${MAILCOW_PASS_SCHEME:-BLF-CRYPT}
         - IMAP_PORT=${IMAP_PORT:-143}
         - IMAPS_PORT=${IMAPS_PORT:-993}
         - POP_PORT=${POP_PORT:-110}
@@ -160,7 +161,7 @@ services:
             - phpfpm
 
     sogo-mailcow:
-      image: mailcow/sogo:1.91
+      image: mailcow/sogo:1.94
       environment:
         - DBNAME=${DBNAME}
         - DBUSER=${DBUSER}
@@ -168,6 +169,7 @@ services:
         - TZ=${TZ}
         - LOG_LINES=${LOG_LINES:-9999}
         - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
+        - MAILCOW_PASS_SCHEME=${MAILCOW_PASS_SCHEME:-BLF-CRYPT}
         - ACL_ANYONE=${ACL_ANYONE:-disallow}
         - ALLOW_ADMIN_EMAIL_LOGIN=${ALLOW_ADMIN_EMAIL_LOGIN:-n}
         - IPV4_NETWORK=${IPV4_NETWORK:-172.22.1}
@@ -193,7 +195,7 @@ services:
             - sogo
 
     dovecot-mailcow:
-      image: mailcow/dovecot:1.135
+      image: mailcow/dovecot:1.139
       depends_on:
         - mysql-mailcow
       dns:
@@ -222,6 +224,7 @@ services:
         - DBPASS=${DBPASS}
         - TZ=${TZ}
         - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
+        - MAILCOW_PASS_SCHEME=${MAILCOW_PASS_SCHEME:-BLF-CRYPT}
         - IPV4_NETWORK=${IPV4_NETWORK:-172.22.1}
         - ALLOW_ADMIN_EMAIL_LOGIN=${ALLOW_ADMIN_EMAIL_LOGIN:-n}
         - MAILDIR_GC_TIME=${MAILDIR_GC_TIME:-1440}
@@ -246,7 +249,6 @@ services:
         nofile:
           soft: 20000
           hard: 40000
-      hostname: ${MAILCOW_HOSTNAME}
       networks:
         mailcow-network:
           ipv4_address: ${IPV4_NETWORK:-172.22.1}.250
@@ -254,7 +256,7 @@ services:
             - dovecot
 
     postfix-mailcow:
-      image: mailcow/postfix:1.56
+      image: mailcow/postfix:1.59
       depends_on:
         - mysql-mailcow
       volumes:
@@ -273,6 +275,7 @@ services:
         - DBPASS=${DBPASS}
         - REDIS_SLAVEOF_IP=${REDIS_SLAVEOF_IP:-}
         - REDIS_SLAVEOF_PORT=${REDIS_SLAVEOF_PORT:-}
+        - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
       cap_add:
         - NET_BIND_SERVICE
       ports:
@@ -282,7 +285,6 @@ services:
       restart: always
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
-      hostname: ${MAILCOW_HOSTNAME}
       networks:
         mailcow-network:
           aliases:
@@ -335,8 +337,8 @@ services:
         - ./data/conf/rspamd/meta_exporter:/meta_exporter:ro,z
         - sogo-web-vol-1:/usr/lib/GNUstep/SOGo/:z
       ports:
-        - "${HTTPS_BIND:-0.0.0.0}:${HTTPS_PORT:-443}:${HTTPS_PORT:-443}"
-        - "${HTTP_BIND:-0.0.0.0}:${HTTP_PORT:-80}:${HTTP_PORT:-80}"
+        - "${HTTPS_BIND:-:}:${HTTPS_PORT:-443}:${HTTPS_PORT:-443}"
+        - "${HTTP_BIND:-:}:${HTTP_PORT:-80}:${HTTP_PORT:-80}"
       restart: always
       networks:
         mailcow-network:
@@ -404,7 +406,7 @@ services:
         - /lib/modules:/lib/modules:ro
 
     watchdog-mailcow:
-      image: mailcow/watchdog:1.85
+      image: mailcow/watchdog:1.86
       # Debug
       #command: /watchdog.sh
       dns:
@@ -439,26 +441,26 @@ services:
         - HTTPS_PORT=${HTTPS_PORT:-443}
         - REDIS_SLAVEOF_IP=${REDIS_SLAVEOF_IP:-}
         - REDIS_SLAVEOF_PORT=${REDIS_SLAVEOF_PORT:-}
-        - EXTERNAL_CHECKS_THRESHOLD=1
-        - NGINX_THRESHOLD=5
-        - UNBOUND_THRESHOLD=5
-        - REDIS_THRESHOLD=5
-        - MYSQL_THRESHOLD=5
-        - MYSQL_REPLICATION_THRESHOLD=1
-        - SOGO_THRESHOLD=3
-        - POSTFIX_THRESHOLD=8
-        - CLAMD_THRESHOLD=15
-        - DOVECOT_THRESHOLD=12
-        - DOVECOT_REPL_THRESHOLD=20
-        - PHPFPM_THRESHOLD=5
-        - RATELIMIT_THRESHOLD=1
-        - FAIL2BAN_THRESHOLD=1
-        - ACME_THRESHOLD=1
-        - IPV6NAT_THRESHOLD=1
-        - RSPAMD_THRESHOLD=5
-        - OLEFY_THRESHOLD=5
-        - MAILQ_THRESHOLD=20
-        - MAILQ_CRIT=30
+        - EXTERNAL_CHECKS_THRESHOLD=${EXTERNAL_CHECKS_THRESHOLD:-1}
+        - NGINX_THRESHOLD=${NGINX_THRESHOLD:-5}
+        - UNBOUND_THRESHOLD=${UNBOUND_THRESHOLD:-5}
+        - REDIS_THRESHOLD=${REDIS_THRESHOLD:-5}
+        - MYSQL_THRESHOLD=${MYSQL_THRESHOLD:-5}
+        - MYSQL_REPLICATION_THRESHOLD=${MYSQL_REPLICATION_THRESHOLD:-1}
+        - SOGO_THRESHOLD=${SOGO_THRESHOLD:-3}
+        - POSTFIX_THRESHOLD=${POSTFIX_THRESHOLD:-8}
+        - CLAMD_THRESHOLD=${CLAMD_THRESHOLD:-15}
+        - DOVECOT_THRESHOLD=${DOVECOT_THRESHOLD:-12}
+        - DOVECOT_REPL_THRESHOLD=${DOVECOT_REPL_THRESHOLD:-20}
+        - PHPFPM_THRESHOLD=${PHPFPM_THRESHOLD:-5}
+        - RATELIMIT_THRESHOLD=${RATELIMIT_THRESHOLD:-1}
+        - FAIL2BAN_THRESHOLD=${FAIL2BAN_THRESHOLD:-1}
+        - ACME_THRESHOLD=${ACME_THRESHOLD:-1}
+        - IPV6NAT_THRESHOLD=${IPV6NAT_THRESHOLD:-1}
+        - RSPAMD_THRESHOLD=${RSPAMD_THRESHOLD:-5}
+        - OLEFY_THRESHOLD=${OLEFY_THRESHOLD:-5}
+        - MAILQ_THRESHOLD=${MAILQ_THRESHOLD:-20}
+        - MAILQ_CRIT=${MAILQ_CRIT:-30}
       networks:
         mailcow-network:
           aliases:
