@@ -841,18 +841,19 @@ if (isset($_GET['query'])) {
           case "mailbox":
             switch ($object) {
               case "all":
+              case "reduced":
                 if (empty($extra)) {
                   $domains = mailbox('get', 'domains');
                 }
                 else {
-                  $domains = array($extra);
+                  $domains = explode(',', $extra);
                 }
                 if (!empty($domains)) {
                   foreach ($domains as $domain) {
                     $mailboxes = mailbox('get', 'mailboxes', $domain);
                     if (!empty($mailboxes)) {
                       foreach ($mailboxes as $mailbox) {
-                        if ($details = mailbox('get', 'mailbox_details', $mailbox)) {
+                        if ($details = mailbox('get', 'mailbox_details', $mailbox, $object)) {
                           $data[] = $details;
                         }
                         else {
@@ -1189,7 +1190,7 @@ if (isset($_GET['query'])) {
                   $domains = array_merge(mailbox('get', 'domains'), mailbox('get', 'alias_domains'));
                 }
                 else {
-                  $domains = array($extra);
+                  $domains = explode(',', $extra);
                 }
                 if (!empty($domains)) {
                   foreach ($domains as $domain) {

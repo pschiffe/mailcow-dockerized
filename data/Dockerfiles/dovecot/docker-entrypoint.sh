@@ -7,7 +7,7 @@ while ! mysqladmin status --socket=/var/run/mysqld/mysqld.sock -u${DBUSER} -p${D
   sleep 2
 done
 
-until dig +short mailcow.email @unbound > /dev/null; do
+until dig +short mailcow.email > /dev/null; do
   echo "Waiting for DNS..."
   sleep 1
 done
@@ -199,6 +199,8 @@ if [[ $(stat -c %U /var/vmail_index) != "vmail" ]] ; then chown -R vmail:vmail /
 
 # Cleanup random user maildirs
 rm -rf /var/vmail/mailcow.local/*
+# Cleanup PIDs
+[[ -f /tmp/quarantine_notify.pid ]] && rm /tmp/quarantine_notify.pid
 
 # create sni configuration
 echo "" > /etc/dovecot/sni.conf

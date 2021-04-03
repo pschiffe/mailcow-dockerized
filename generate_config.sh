@@ -30,7 +30,7 @@ for bin in openssl curl docker-compose docker git awk sha1sum; do
 done
 
 if [ -f mailcow.conf ]; then
-  read -r -p "A config file exists and will be overwritten, are you sure you want to contine? [y/N] " response
+  read -r -p "A config file exists and will be overwritten, are you sure you want to continue? [y/N] " response
   case $response in
     [yY][eE][sS]|[yY])
       mv mailcow.conf mailcow.conf_backup
@@ -170,6 +170,9 @@ DOVEADM_PORT=127.0.0.1:19991
 SQL_PORT=127.0.0.1:13306
 SOLR_PORT=127.0.0.1:18983
 REDIS_PORT=127.0.0.1:7654
+XMPP_C2S_PORT=5222
+XMPP_S2S_PORT=5269
+XMPP_HTTPS_PORT=5443
 
 # Your timezone
 # See https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for a list of timezones
@@ -210,6 +213,16 @@ MAILDIR_GC_TIME=7200
 #
 
 ADDITIONAL_SAN=
+
+# Additional server names for mailcow UI
+#
+# Specify alternative addresses for the mailcow UI to respond to
+# This is useful when you set mail.* as ADDITIONAL_SAN and want to make sure mail.maildomain.com will always point to the mailcow UI.
+# If the server name does not match a known site, Nginx decides by best-guess and may redirect users to the wrong web root.
+# You can understand this as server_name directive in Nginx.
+# Comma separated list without spaces! Example: ADDITIONAL_SERVER_NAMES=a.b.c,d.e.f
+
+ADDITIONAL_SERVER_NAMES=
 
 # Skip running ACME (acme-mailcow, Let's Encrypt certs) - y/n
 
@@ -265,6 +278,9 @@ USE_WATCHDOG=y
 
 # Notify about banned IP (includes whois lookup)
 WATCHDOG_NOTIFY_BAN=n
+
+# Subject for watchdog mails. Defaults to "Watchdog ALERT" followed by the error message.
+#WATCHDOG_SUBJECT=
 
 # Checks if mailcow is an open relay. Requires a SAL. More checks will follow.
 # https://www.servercow.de/mailcow?lang=en
