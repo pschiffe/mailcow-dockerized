@@ -1,9 +1,8 @@
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 
 LABEL maintainer "André Peters <andre.peters@servercow.de>"
 
-ARG CLAMAV=0.103.1
-
+ARG CLAMAV=0.103.5
 RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   zlib1g-dev \

@@ -80,7 +80,7 @@ fi
 printf "[SAN]\nsubjectAltName=" > /tmp/_SAN
 printf "DNS:%s," "${CERT_DOMAINS[@]}" >> /tmp/_SAN
 sed -i '$s/,$//' /tmp/_SAN
-openssl req -new -sha256 -key ${KEY} -subj "/" -reqexts SAN -config <(cat /etc/ssl/openssl.cnf /tmp/_SAN) > ${CSR}
+openssl req -new -sha256 -key ${KEY} -subj "/" -reqexts SAN -config <(cat "$(openssl version -d | sed 's/.*"\(.*\)"/\1/g')/openssl.cnf" /tmp/_SAN) > ${CSR}
 
 # acme-tiny writes info to stderr and ceritifcate to stdout
 # The redirects will do the following:
@@ -93,8 +93,8 @@ until dig letsencrypt.org +time=3 +tries=1 @unbound > /dev/null; do
   sleep 2
 done
 log_f "Resolver OK"
-
-ACME_RESPONSE=$(acme-tiny ${DIRECTORY_URL} \
+log_f "Using command acme-tiny ${DIRECTORY_URL} ${ACME_CONTACT_PARAMETER} --account-key ${ACME_BASE}/acme/account.pem --disable-check --csr ${CSR} --acme-dir /var/www/acme/"
+ACME_RESPONSE=$(acme-tiny ${DIRECTORY_URL} ${ACME_CONTACT_PARAMETER} \
   --account-key ${ACME_BASE}/acme/account.pem \
   --disable-check \
   --csr ${CSR} \

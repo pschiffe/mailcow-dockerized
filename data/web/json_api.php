@@ -117,12 +117,12 @@ if (isset($_GET['query'])) {
           echo isset($_SESSION['return']) ? json_encode($_SESSION['return']) : $generic_success;
         }
       }
-      if (!isset($_POST['attr']) && $category != "fido2-registration") {
+      if (!isset($_POST['attr']) && $category != "fido2-registration" && $category != "webauthn-tfa-registration") {
         echo $request_incomplete;
         exit;
       }
       else {
-        if ($category != "fido2-registration") {
+        if ($category != "fido2-registration" && $category != "webauthn-tfa-registration") {
           $attr = (array)json_decode($_POST['attr'], true);
         }
         unset($attr['csrf_token']);
@@ -141,7 +141,7 @@ if (isset($_GET['query'])) {
         // fido2-registration via POST
         case "fido2-registration":
           header('Content-Type: application/json');
-          if (isset($_SESSION["mailcow_cc_role"]) && ($_SESSION["mailcow_cc_role"] == "admin" || $_SESSION["mailcow_cc_role"] == "domainadmin")) {
+          if (isset($_SESSION["mailcow_cc_role"])) {
             $post = trim(file_get_contents('php://input'));
             if ($post) {
               $post = json_decode($post);
@@ -169,6 +169,48 @@ if (isset($_GET['query'])) {
             echo $request_incomplete;
             exit;
           }
+        break;
+        case "webauthn-tfa-registration":
+            if (isset($_SESSION["mailcow_cc_role"])) {
+              // parse post data
+              $post = trim(file_get_contents('php://input'));
+              if ($post) $post = json_decode($post);
+
+              // decode base64 strings
+              $clientDataJSON = base64_decode($post->clientDataJSON);
+              $attestationObject = base64_decode($post->attestationObject);             
+              
+              // process registration data from authenticator
+              try {
+                // processCreate($clientDataJSON, $attestationObject, $challenge, $requireUserVerification=false, $requireUserPresent=true, $failIfRootMismatch=true)
+                $data = $WebAuthn->processCreate($clientDataJSON, $attestationObject, $_SESSION['challenge'], false, true);
+              }
+              catch (Throwable $ex) {
+                // err
+                $return = new stdClass();
+                $return->success = false;
+                $return->msg = $ex->getMessage();
+                echo json_encode($return);
+                exit;
+              }
+
+              // safe authenticator in mysql `tfa` table
+              $_data['tfa_method'] = $post->tfa_method;
+              $_data['key_id'] = $post->key_id;
+              $_data['registration'] = $data;
+              set_tfa($_data);
+
+              // send response
+              $return = new stdClass();
+              $return->success = true;
+              echo json_encode($return);
+              exit;
+            }
+            else {
+              // err - request incomplete
+              echo $request_incomplete;
+              exit;
+            }
         break;
         case "time_limited_alias":
           process_add_return(mailbox('add', 'time_limited_alias', $attr));
@@ -302,11 +344,23 @@ if (isset($_GET['query'])) {
           if ($obj_props['superadmin'] === 1) {
             $_SESSION["mailcow_cc_role"] = "admin";
           }
-          else {
+          elseif ($obj_props['superadmin'] === 0) {
             $_SESSION["mailcow_cc_role"] = "domainadmin";
           }
+          else {
+            $stmt = $pdo->prepare("SELECT `username` FROM `mailbox` WHERE `username` = :username");
+            $stmt->execute(array(':username' => $process_fido2['username']));
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row['username'] == $process_fido2['username']) {
+              $_SESSION["mailcow_cc_role"] = "user";
+            }
+          }
+          if (empty($_SESSION["mailcow_cc_role"])) {
+            session_unset();
+            session_destroy();
+            exit;
+          }
           $_SESSION["mailcow_cc_username"] = $process_fido2['username'];
-          $_SESSION['mailcow_cc_last_login'] = last_login($process_fido2['username']);
           $_SESSION["fido2_cid"] = $process_fido2['cid'];
           unset($_SESSION["challenge"]);
           $_SESSION['return'][] =  array(
@@ -319,8 +373,14 @@ if (isset($_GET['query'])) {
       }
     break;
     case "get":
-      function process_get_return($data) {
-        echo (!isset($data) || empty($data)) ? '{}' : json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+      function process_get_return($data, $object = true) {
+        if ($object === true) {
+          $ret_str = '{}';
+        }
+        else {
+          $ret_str = '[]';
+        }
+        echo (!isset($data) || empty($data)) ? $ret_str : json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
       }
       // only allow GET requests to GET API endpoints
       if ($_SERVER['REQUEST_METHOD'] != 'GET') {
@@ -332,33 +392,13 @@ if (isset($_GET['query'])) {
         exit();
       }
       switch ($category) {
-        case "u2f-registration":
-          header('Content-Type: application/javascript');
-          if (isset($_SESSION["mailcow_cc_role"]) &&
-            ($_SESSION["mailcow_cc_role"] == "admin" || $_SESSION["mailcow_cc_role"] == "domainadmin") &&
-            $_SESSION["mailcow_cc_username"] == $object) {
-              list($req, $sigs) = $u2f->getRegisterData(get_u2f_registrations($object));
-              $_SESSION['regReq'] = json_encode($req);
-              $_SESSION['regSigs'] = json_encode($sigs);
-              echo 'var req = ' . json_encode($req) . ';';
-              echo 'var registeredKeys = ' . json_encode($sigs) . ';';
-              echo 'var appId = req.appId;';
-              echo 'var registerRequests = [{version: req.version, challenge: req.challenge}];';
-              return;
-          }
-          else {
-            return;
-          }
-        break;
-        // fido2-registration via GET
+        // fido2
         case "fido2-registration":
           header('Content-Type: application/json');
-          if (isset($_SESSION["mailcow_cc_role"]) &&
-            ($_SESSION["mailcow_cc_role"] == "admin" || $_SESSION["mailcow_cc_role"] == "domainadmin") &&
-            $_SESSION["mailcow_cc_username"] == $object) {
+          if (isset($_SESSION["mailcow_cc_role"])) {
               // Exclude existing CredentialIds, if any
               $excludeCredentialIds = fido2(array("action" => "get_user_cids"));
-              $createArgs = $WebAuthn->getCreateArgs($_SESSION["mailcow_cc_username"], $_SESSION["mailcow_cc_username"], $_SESSION["mailcow_cc_username"], 30, true, $GLOBALS['FIDO2_UV_FLAG_REGISTER'], $excludeCredentialIds);
+              $createArgs = $WebAuthn->getCreateArgs($_SESSION["mailcow_cc_username"], $_SESSION["mailcow_cc_username"], $_SESSION["mailcow_cc_username"], 30, true, $GLOBALS['FIDO2_UV_FLAG_REGISTER'], null, $excludeCredentialIds);
               print(json_encode($createArgs));
               $_SESSION['challenge'] = $WebAuthn->getChallenge();
               return;
@@ -367,37 +407,63 @@ if (isset($_GET['query'])) {
             return;
           }
         break;
-        case "u2f-authentication":
-          header('Content-Type: application/javascript');
-          if (isset($_SESSION['pending_mailcow_cc_username']) && $_SESSION['pending_mailcow_cc_username'] == $object) {
-            $auth_data = $u2f->getAuthenticateData(get_u2f_registrations($object));
-            $challenge = $auth_data[0]->challenge;
-            $appId = $auth_data[0]->appId;
-            foreach ($auth_data as $each) {
-              $key = array(); // Empty array
-              $key['version']   = $each->version;
-              $key['keyHandle'] = $each->keyHandle;
-              $registeredKey[]  = $key;
-            }
-            $_SESSION['authReq']  = json_encode($auth_data);
-            echo 'var appId = "' . $appId . '";';
-            echo 'var challenge = ' . json_encode($challenge) . ';';
-            echo 'var registeredKeys = ' . json_encode($registeredKey) . ';';
-            return;
+        case "fido2-get-args":
+          header('Content-Type: application/json');
+          // fetch allowed credentialIds
+          $cids = fido2(array("action" => "get_all_cids"));
+          if (count($cids) == 0) {  
+            print(json_encode(array(
+                'type' => 'error',
+                'msg' => 'Cannot find matching credentialIds'
+            )));
+          }
+
+          $getArgs = $WebAuthn->getGetArgs($cids, 30, true, true, true, true, $GLOBALS['FIDO2_UV_FLAG_LOGIN']);
+          print(json_encode($getArgs));
+          $_SESSION['challenge'] = $WebAuthn->getChallenge();
+          return;
+        break;
+        // webauthn two factor authentication
+        case "webauthn-tfa-registration":
+          if (isset($_SESSION["mailcow_cc_role"])) {
+              // Exclude existing CredentialIds, if any
+              $stmt = $pdo->prepare("SELECT `keyHandle` FROM `tfa` WHERE username = :username");
+              $stmt->execute(array(':username' => $_SESSION['mailcow_cc_username']));
+              $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+              while($row = array_shift($rows)) {
+                $excludeCredentialIds[] = base64_decode($row['keyHandle']);
+              }
+              // getCreateArgs($userId, $userName, $userDisplayName, $timeout=20, $requireResidentKey=false, $requireUserVerification=false, $crossPlatformAttachment=null, $excludeCredentialIds=array())
+              // cross-platform: true, if type internal is not allowed
+              //        false, if only internal is allowed
+              //        null, if internal and cross-platform is allowed
+              $createArgs = $WebAuthn->getCreateArgs($_SESSION["mailcow_cc_username"], $_SESSION["mailcow_cc_username"], $_SESSION["mailcow_cc_username"], 30, false, $GLOBALS['WEBAUTHN_UV_FLAG_REGISTER'], null, $excludeCredentialIds);
+              
+              print(json_encode($createArgs));
+              $_SESSION['challenge'] = $WebAuthn->getChallenge();
+              return;
+
           }
           else {
             return;
           }
         break;
-        case "fido2-get-args":
-          header('Content-Type: application/json');
-          // Login without username, no ids!
-          // $ids = fido2(array("action" => "get_all_cids"));
-          // if (count($ids) == 0) {
-            // return;
-          // }
-          $ids = NULL;
-          $getArgs = $WebAuthn->getGetArgs($ids, 30, true, true, true, true, $GLOBALS['FIDO2_UV_FLAG_LOGIN']);
+        case "webauthn-tfa-get-args":
+          $stmt = $pdo->prepare("SELECT `keyHandle` FROM `tfa` WHERE username = :username");
+          $stmt->execute(array(':username' => $_SESSION['pending_mailcow_cc_username']));
+          $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+          while($row = array_shift($rows)) {
+            $cids[] = base64_decode($row['keyHandle']);
+          }
+          if (count($cids) == 0) {
+            print(json_encode(array(
+                'type' => 'error',
+                'msg' => 'Cannot find matching credentialIds'
+            )));
+          }
+
+          $getArgs = $WebAuthn->getGetArgs($cids, 30, true, true, true, true, $GLOBALS['WEBAUTHN_UV_FLAG_LOGIN']);
+          $getArgs->publicKey->extensions = array('appid' => "https://".$getArgs->publicKey->rpId);
           print(json_encode($getArgs));
           $_SESSION['challenge'] = $WebAuthn->getChallenge();
           return;
@@ -446,6 +512,20 @@ if (isset($_GET['query'])) {
             }
           break;
 
+          case "passwordpolicy":
+            switch ($object) {
+              case "html":
+                $password_complexity_rules = password_complexity('html');
+                if ($password_complexity_rules !== false) {
+                  process_get_return($password_complexity_rules);
+                }
+                else {
+                  echo '{}';
+                }
+              break;
+            }
+          break;
+
           case "app-passwd":
             switch ($object) {
               case "all":
@@ -457,7 +537,7 @@ if (isset($_GET['query'])) {
                 }
                 if (!empty($app_passwds)) {
                   foreach ($app_passwds as $app_passwd) {
-                    $details = app_passwd('details', array('id' => $app_passwd['id']));
+                    $details = app_passwd('details', $app_passwd['id']);
                     if ($details !== false) {
                       $data[] = $details;
                     }
@@ -492,7 +572,7 @@ if (isset($_GET['query'])) {
               break;
             }
           break;
-          
+
           case "postcat":
             switch ($object) {
               default:
@@ -617,6 +697,27 @@ if (isset($_GET['query'])) {
                 $data = relayhost('details', $object);
                 process_get_return($data);
               break;
+            }
+          break;
+
+          case "last-login":
+            if ($object) {
+              // extra == days
+              if (isset($extra) && intval($extra) >= 1) {
+                $data = last_login('get', $object, intval($extra));
+              }
+              else {
+                $data = last_login('get', $object);
+              }
+              process_get_return($data);
+            }
+          break;
+
+          // Todo: move to delete
+          case "reset-last-login":
+            if ($object) {
+              $data = last_login('reset', $object);
+              process_get_return($data);
             }
           break;
 
@@ -780,6 +881,17 @@ if (isset($_GET['query'])) {
                 }
                 echo (isset($logs) && !empty($logs)) ? json_encode($logs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) : '{}';
               break;
+              case "sasl":
+                // 0 is first record, so empty is fine
+                if (isset($extra)) {
+                  $extra = preg_replace('/[^\d\-]/i', '', $extra);
+                  $logs = get_logs('sasl', $extra);
+                }
+                else {
+                  $logs = get_logs('sasl');
+                }
+                echo (isset($logs) && !empty($logs)) ? json_encode($logs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) : '{}';
+              break;
               case "watchdog":
                 // 0 is first record, so empty is fine
                 if (isset($extra)) {
@@ -874,6 +986,33 @@ if (isset($_GET['query'])) {
                 process_get_return($data);
               break;
             }
+          break;
+          case "bcc-destination-options":
+            $domains = mailbox('get', 'domains');
+            $alias_domains = mailbox('get', 'alias_domains');
+            $data = array();
+            if (!empty($domains)) {
+              foreach ($domains as $domain) {
+                $data['domains'][] = $domain;
+                $mailboxes = mailbox('get', 'mailboxes', $domain);
+                foreach ($mailboxes as $mailbox) {
+                  $data['mailboxes'][$mailbox][] = $mailbox;
+                  $user_alias_details = user_get_alias_details($mailbox);
+                  foreach ($user_alias_details['direct_aliases'] as $k => $v) {
+                    $data['mailboxes'][$mailbox][] = $k;
+                  }
+                  foreach ($user_alias_details['shared_aliases'] as $k => $v) {
+                    $data['mailboxes'][$mailbox][] = $k;
+                  }
+                }
+              }
+            }
+            if (!empty($alias_domains)) {
+              foreach ($alias_domains as $alias_domain) {
+                $data['alias_domains'][] = $alias_domain;
+              }
+            }
+            process_get_return($data);
           break;
           case "syncjobs":
             switch ($object) {
@@ -1155,10 +1294,10 @@ if (isset($_GET['query'])) {
             // "all" will not print details
             switch ($object) {
               case "all":
-                process_get_return(quarantine('get'));
+                process_get_return(quarantine('get'), false);
               break;
               default:
-                process_get_return(quarantine('details', $object));
+                process_get_return(quarantine('details', $object), false);
               break;
             }
           break;
@@ -1438,7 +1577,6 @@ if (isset($_GET['query'])) {
           process_delete_return(dkim('delete', array('domains' => $items)));
         break;
         case "domain":
-          file_put_contents('/tmp/dssaa', $items);
           process_delete_return(mailbox('delete', 'domain', array('domain' => $items)));
         break;
         case "alias-domain":
@@ -1561,6 +1699,9 @@ if (isset($_GET['query'])) {
         case "app_links":
           process_edit_return(customize('edit', 'app_links', $attr));
         break;
+        case "passwordpolicy":
+          process_edit_return(password_complexity('edit', $attr));
+        break;
         case "relayhost":
           process_edit_return(relayhost('edit', array_merge(array('id' => $items), $attr)));
         break;
@@ -1590,6 +1731,9 @@ if (isset($_GET['query'])) {
         break;
         case "quota_notification":
           process_edit_return(quota_notification('edit', $attr));
+        break;
+        case "quota_notification_bcc":
+          process_edit_return(quota_notification_bcc('edit', $attr));
         break;
         case "mailq":
           process_edit_return(mailq('edit', array_merge(array('qid' => $items), $attr)));
