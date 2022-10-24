@@ -299,7 +299,7 @@
         "rsettings_preset_2": "Postmasterii doresc spam",
         "rsettings_preset_3": "Permiteți numai expeditori specifici pentru o căsuță poștală (ex: utilizare numai ca adresa de email internă)",
         "rsettings_preset_4": "Dezactivați Rspamd pentru domeniu",
-        "rspamd-com_settings": "<a href=\"https://rspamd.com/doc/configuration/settings.html#settings-structure\" target=\"_blank\">Documente Rspamd</a>\n  - Un nume de setare va fi generat automat, te rog să consulți presetările exemplu de mai jos.",
+        "rspamd_com_settings": "<a href=\"https://rspamd.com/doc/configuration/settings.html#settings-structure\" target=\"_blank\">Documente Rspamd</a>\n  - Un nume de setare va fi generat automat, te rog să consulți presetările exemplu de mai jos.",
         "rspamd_global_filters": "Hărți cu filtru global",
         "rspamd_global_filters_agree": "Voi fi atent!",
         "rspamd_global_filters_info": "Hărțile cu filtre globale conțin diferite tipuri de liste negre și albe.",
@@ -495,7 +495,7 @@
         "cname_from_a": "Valoare derivată din înregistrarea A/AAAA. Acest lucru este acceptat atâta timp cât înregistrarea indică resursele corecte.",
         "dns_records": "Înregistrări DNS",
         "dns_records_24hours": "Rețineți că modificările aduse DNS-ului pot dura până la 24 de ore pentru a reflecta corect starea lor curentă pe această pagină. Acest mecanism este conceput ca o modalitate să vezi ușor cum să îți configurezi înregistrările DNS și să verifici dacă toate înregistrările sunt stocate corect în DNS.",
-        "dns_records_docs": "Vă rugăm să consultați și <a target=\"_blank\" href=\"https://mailcow.github.io/mailcow-dockerized-docs/prerequisite-dns/\">documentația</a>.",
+        "dns_records_docs": "Vă rugăm să consultați și <a target=\"_blank\" href=\"https://mailcow.github.io/mailcow-dockerized-docs/prerequisite/prerequisite-dns/\">documentația</a>.",
         "dns_records_data": "Date corecte",
         "dns_records_name": "Nume",
         "dns_records_status": "Stare curentă",
@@ -979,7 +979,8 @@
         "verified_totp_login": "Autentificarea TOTP verificată",
         "verified_webauthn_login": "Autentificarea WebAuthn verificată",
         "verified_fido2_login": "Conectare FIDO2 verificată",
-        "verified_yotp_login": "Autentificarea Yubico OTP verificată"
+        "verified_yotp_login": "Autentificarea Yubico OTP verificată",
+        "domain_add_dkim_available": "O cheie DKIM deja a existat"
     },
     "tfa": {
         "api_register": "%s utilizează API-ul Yubico Cloud. Obțineți o cheie API pentru cheia dvs. de <a href=\"https://upgrade.yubico.com/getapikey/\" target=\"_blank\">aici</a>",
@@ -990,7 +991,7 @@
         "enter_qr_code": "Codul tău TOTP dacă dispozitivul tău nu poate scana codurile QR",
         "error_code": "Cod de eroare",
         "init_webauthn": "Inițializare, vă rugăm așteptați...",
-        "key_id": "Un identificator pentru YubiKey",
+        "key_id": "Un identificator pentru dispozitiv",
         "key_id_totp": "Un identificator pentru cheia ta",
         "none": "Dezactivează",
         "reload_retry": "- (reîncărcați browserul dacă eroarea persistă)",
