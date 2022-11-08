@@ -41,7 +41,7 @@ services:
             - mysql
 
     redis-mailcow:
-      image: redis:6-alpine
+      image: redis:7-alpine
       command: redis-server --save 10800 1
       volumes:
         - redis-vol-1:/data/
@@ -425,7 +425,7 @@ services:
             - acme
 
     netfilter-mailcow:
-      image: mailcow/netfilter:1.48
+      image: mailcow/netfilter:1.49
       stop_grace_period: 30s
       depends_on:
         - dovecot-mailcow
