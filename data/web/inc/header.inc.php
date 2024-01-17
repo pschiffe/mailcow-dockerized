@@ -39,8 +39,8 @@ $globalVariables = [
   'dual_login' => @$_SESSION['dual-login'],
   'ui_texts' => $UI_TEXTS,
   'css_path' => '/cache/'.basename($CSSPath),
-  'theme' => strtolower(trim($DEFAULT_THEME)),
   'logo' => customize('get', 'main_logo'),
+  'logo_dark' => customize('get', 'main_logo_dark'),
   'available_languages' => $AVAILABLE_LANGUAGES,
   'lang' => $lang,
   'skip_sogo' => (getenv('SKIP_SOGO') == 'y'),
@@ -49,6 +49,7 @@ $globalVariables = [
   'app_links' => customize('get', 'app_links'),
   'is_root_uri' => (parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) == '/'),
   'uri' => $_SERVER['REQUEST_URI'],
+  'last_login' => last_login('get', $_SESSION['mailcow_cc_username'], 7, 0)['ui']['time']
 ];
 
 foreach ($globalVariables as $globalVariableName => $globalVariableValue) {

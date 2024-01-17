@@ -1,6 +1,7 @@
-FROM alpine:3.16
-LABEL maintainer "Andre Peters <andre.peters@servercow.de>"
+FROM alpine:3.19
+LABEL maintainer "The Infrastructure Company GmbH <info@servercow.de>"
 
+ARG PIP_BREAK_SYSTEM_PACKAGES=1
 WORKDIR /app
 
 #RUN addgroup -S olefy && adduser -S olefy -G olefy \

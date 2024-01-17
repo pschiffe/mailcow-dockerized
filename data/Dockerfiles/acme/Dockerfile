@@ -1,7 +1,8 @@
-FROM alpine:3.16
+FROM alpine:3.19
 
-LABEL maintainer "Andre Peters <andre.peters@servercow.de>"
+LABEL maintainer "The Infrastructure Company GmbH GmbH <info@servercow.de>"
 
+ARG PIP_BREAK_SYSTEM_PACKAGES=1
 RUN apk upgrade --no-cache \
   && apk add --update --no-cache \
   bash \

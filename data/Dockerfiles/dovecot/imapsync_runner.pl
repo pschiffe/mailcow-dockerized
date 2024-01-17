@@ -51,8 +51,8 @@ sub sig_handler {
   die "sig_handler received signal, preparing to exit...\n";
 };
 
-open my $file, '<', "/etc/sogo/sieve.creds";
-my $creds = <$file>;
+open my $file, '<', "/etc/sogo/sieve.creds"; 
+my $creds = <$file>; 
 close $file;
 my ($master_user, $master_pass) = split /:/, $creds;
 my $sth = $dbh->prepare("SELECT id,
@@ -75,7 +75,8 @@ my $sth = $dbh->prepare("SELECT id,
   custom_params,
   subscribeall,
   timeout1,
-  timeout2
+  timeout2,
+  dry
     FROM imapsync
       WHERE active = 1
         AND is_running = 0
@@ -111,13 +112,16 @@ while ($row = $sth->fetchrow_arrayref()) {
   $subscribeall        = @$row[18];
   $timeout1            = @$row[19];
   $timeout2            = @$row[20];
+  $dry                 = @$row[21];
 
   if ($enc1 eq "TLS") { $enc1 = "--tls1"; } elsif ($enc1 eq "SSL") { $enc1 = "--ssl1"; } else { undef $enc1; }
 
   my $template = $run_dir . '/imapsync.XXXXXXX';
   my $passfile1 = File::Temp->new(TEMPLATE => $template);
   my $passfile2 = File::Temp->new(TEMPLATE => $template);
-
+  
+  binmode( $passfile1, ":utf8" );
+  
   print $passfile1 "$password1\n";
   print $passfile2 trim($master_pass) . "\n";
 
@@ -148,6 +152,7 @@ while ($row = $sth->fetchrow_arrayref()) {
   "--host2", "localhost",
   "--user2", $user2 . '*' . trim($master_user),
   "--passfile2", $passfile2->filename,
+  ($dry eq "1" ? ('--dry') : ()),
   '--no-modulesversion',
   '--noreleasecheck'];
 
@@ -166,17 +171,11 @@ while ($row = $sth->fetchrow_arrayref()) {
       $success = 1;
     }
 
-    $keep_job_active = 1;
-    if (defined $exit_status && $exit_status eq "EXIT_AUTHENTICATION_FAILURE_USER1") {
-      $keep_job_active = 0;
-    }
-
-    $update = $dbh->prepare("UPDATE imapsync SET returned_text = ?, success = ?, exit_status = ?, active = ? WHERE id = ?");
+    $update = $dbh->prepare("UPDATE imapsync SET returned_text = ?, success = ?, exit_status = ? WHERE id = ?");
     $update->bind_param( 1, ${stdout} );
     $update->bind_param( 2, ${success} );
     $update->bind_param( 3, ${exit_status} );
-    $update->bind_param( 4, ${keep_job_active} );
-    $update->bind_param( 5, ${id} );
+    $update->bind_param( 4, ${id} );
     $update->execute();
   } catch {
     $update = $dbh->prepare("UPDATE imapsync SET returned_text = 'Could not start or finish imapsync', success = 0 WHERE id = ?");

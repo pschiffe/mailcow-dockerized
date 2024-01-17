@@ -159,7 +159,7 @@ function auth_password_verify(req, pass)
         VALUES ("%s", 0, "%s", "%s")]], con:escape(req.service), con:escape(req.user), con:escape(req.real_rip)))
       cur:close()
       con:close()
-      return dovecot.auth.PASSDB_RESULT_OK, "password=" .. pass
+      return dovecot.auth.PASSDB_RESULT_OK, ""
     end
     row = cur:fetch (row, "a")
   end
@@ -180,13 +180,13 @@ function auth_password_verify(req, pass)
         if tostring(req.real_rip) == "__IPV4_SOGO__" then
           cur:close()
           con:close()
-          return dovecot.auth.PASSDB_RESULT_OK, "password=" .. pass
+          return dovecot.auth.PASSDB_RESULT_OK, ""
         elseif row.has_prot_access == "1" then
           con:execute(string.format([[REPLACE INTO sasl_log (service, app_password, username, real_rip)
             VALUES ("%s", %d, "%s", "%s")]], con:escape(req.service), row.id, con:escape(req.user), con:escape(req.real_rip)))
           cur:close()
           con:close()
-          return dovecot.auth.PASSDB_RESULT_OK, "password=" .. pass
+          return dovecot.auth.PASSDB_RESULT_OK, ""
         end
       end
       row = cur:fetch (row, "a")
@@ -431,5 +431,9 @@ done
 # For some strange, unknown and stupid reason, Dovecot may run into a race condition, when this file is not touched before it is read by dovecot/auth
 # May be related to something inside Docker, I seriously don't know
 touch /etc/dovecot/lua/passwd-verify.lua
+
+if [[ ! -z ${REDIS_SLAVEOF_IP} ]]; then
+  cp /etc/syslog-ng/syslog-ng-redis_slave.conf /etc/syslog-ng/syslog-ng.conf
+fi
 
 exec "$@"

@@ -1,9 +1,11 @@
-FROM alpine:3.16
+FROM alpine:3.19
 
-LABEL maintainer "Andre Peters <andre.peters@servercow.de>"
+LABEL maintainer "The Infrastructure Company GmbH GmbH <info@servercow.de>"
 
 RUN apk add --update --no-cache \
 	curl \
+	bind-tools \
+	netcat-openbsd \
 	unbound \
 	bash \
 	openssl \
@@ -17,6 +19,11 @@ RUN apk add --update --no-cache \
 EXPOSE 53/udp 53/tcp
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
+
+# healthcheck (nslookup)
+COPY healthcheck.sh /healthcheck.sh
+RUN chmod +x /healthcheck.sh
+HEALTHCHECK --interval=5s --timeout=10s CMD [ "/healthcheck.sh" ]
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
