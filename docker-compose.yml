@@ -166,11 +166,18 @@ services:
         - DEMO_MODE=${DEMO_MODE:-n}
         - WEBAUTHN_ONLY_TRUSTED_VENDORS=${WEBAUTHN_ONLY_TRUSTED_VENDORS:-n}
         - CLUSTERMODE=${CLUSTERMODE:-}
+        - DBROUNDCUBE=${DBROUNDCUBE:-}
+        - ROUNDCUBE_DES_KEY=${ROUNDCUBE_DES_KEY:-}
       restart: always
       networks:
         mailcow-network:
           aliases:
             - phpfpm
+      labels:
+        ofelia.enabled: "true"
+        ofelia.job-exec.roundcube_cleandb.schedule: "@every 168h"
+        ofelia.job-exec.roundcube_cleandb.user: "www-data"
+        ofelia.job-exec.roundcube_cleandb.command: "/bin/bash -c '[[ \"$${DBROUNDCUBE:-}\" ]] && /web/rc/bin/cleandb.sh'"
 
     sogo-mailcow:
       image: mailcow/sogo:1.121

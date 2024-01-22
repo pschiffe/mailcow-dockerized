@@ -1,0 +1,3 @@
+location /rc/ {
+  alias /web/rc/public_html/;
+}

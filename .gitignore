@@ -12,7 +12,6 @@ data/conf/clamav/whitelist.ign2
 data/conf/dovecot/acl_anyone
 data/conf/dovecot/dovecot-master.passwd
 data/conf/dovecot/dovecot-master.userdb
-data/conf/dovecot/extra.conf
 data/conf/dovecot/global_sieve_*
 data/conf/dovecot/last_login
 data/conf/dovecot/lua
@@ -25,7 +24,6 @@ data/conf/dovecot/sql
 data/conf/nextcloud-*.bak
 data/conf/nginx/*.active
 data/conf/nginx/*.bak
-data/conf/nginx/*.custom
 data/conf/phpfpm/sogo-sso/sogo-sso.pass
 data/conf/portainer/
 data/conf/postfix/allow_mailcow_local.regexp
@@ -47,7 +45,6 @@ data/conf/sogo/sogo-full.svg
 data/gitea/
 data/gogs/
 data/hooks/dovecot/*
-data/hooks/phpfpm/*
 data/hooks/postfix/*
 data/hooks/rspamd/*
 data/hooks/sogo/*
@@ -56,10 +53,10 @@ data/web/templates/cache/*
 !data/web/templates/cache/.gitkeep
 data/web/.well-known/acme-challenge
 data/web/css/build/0081-custom-mailcow.css
-data/web/inc/vars.local.inc.php
 data/web/inc/app_info.inc.php
 data/web/nextcloud*/
-data/web/rc*/
+data/web/rc/logs/[a-z]*
+data/web/rc/temp/[a-z]*
 docker-compose.override.yml
 mailcow.conf
 mailcow.conf_backup
@@ -67,3 +64,4 @@ rebuild-images.sh
 refresh_images.sh
 update_diffs/
 create_cold_standby.sh
+roundcube-init-db.sh.done

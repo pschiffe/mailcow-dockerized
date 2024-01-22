@@ -1,0 +1,16 @@
+.phpunit.result.cache
+.*.swp
+.*.drawio.bkp
+/.phpdoc/
+/test*.php
+/*.log
+/tags
+/composer.lock
+/vendor
+/testreports
+/tests/Interop/AccountData*.php
+/xml
+/doc/api
+.DS_Store
+/.idea/
+/tools/

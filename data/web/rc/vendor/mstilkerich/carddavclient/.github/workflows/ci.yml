@@ -1,0 +1,317 @@
+name: CI Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - issue*
+
+jobs:
+  staticanalyses:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout carddavclient
+        uses: actions/checkout@v3
+      - name: Set up CI environment
+        uses: ./.github/actions/setup
+        with:
+          php-version: '8.0'
+      - name: Check code style compliance with PSR12
+        run: make stylecheck
+      - name: Check code compatibility with minimum supported PHP version
+        run: make phpcompatcheck
+      - name: Run psalm static analysis
+        run: make psalmanalysis
+
+  unittests:
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['7.3', '7.4', '8.0', '8.1', '8.2']
+
+    runs-on: ubuntu-20.04
+
+    env:
+      XDEBUG_MODE: coverage
+
+    steps:
+      - name: Checkout carddavclient
+        uses: actions/checkout@v3
+      - name: Set up CI environment
+        uses: ./.github/actions/setup
+        with:
+          php-version: '8.0'
+      - name: Run unit tests
+        run: make unittests
+      - name: Upload unit test coverage reports to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          files: testreports/unit/clover.xml
+          flags: unittests
+          name: Carddavclient unit test coverage
+
+  interop-nextcloud:
+    strategy:
+      fail-fast: false
+      matrix:
+        nextcloud-version: ['24', '25']
+
+    runs-on: ubuntu-20.04
+
+    env:
+      XDEBUG_MODE: coverage
+      CARDDAVCLIENT_INTEROP_SRV: Nextcloud
+
+    services:
+      nextcloud:
+        image: nextcloud:${{ matrix.nextcloud-version }}
+        options: >-
+          --name nextcloud
+        ports:
+          - 8080:80
+
+    steps:
+      - name: Checkout carddavclient
+        uses: actions/checkout@v3
+      - name: Set up CI environment
+        uses: ./.github/actions/setup
+        with:
+          php-version: '8.0'
+      - name: Setup Nextcloud
+        run: |
+          sudo docker exec --user www-data nextcloud php occ maintenance:install --admin-user=ncadm --admin-pass=ncadmPassw0rd
+          sudo docker exec --user www-data nextcloud php occ app:install contacts
+          sudo docker exec --user www-data nextcloud php occ app:disable contactsinteraction
+      - name: Run interop tests
+        run: make tests-interop
+      - name: Upload interop-nextcloud test coverage reports to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          files: testreports/interop/clover.xml
+          flags: interop
+          name: Carddavclient nextcloud interoperability test coverage
+
+  interop-owncloud:
+    strategy:
+      fail-fast: false
+      matrix:
+        owncloud-version: ['10']
+
+    runs-on: ubuntu-20.04
+
+    env:
+      XDEBUG_MODE: coverage
+      CARDDAVCLIENT_INTEROP_SRV: Owncloud
+
+    services:
+      owncloud:
+        image: owncloud/server:${{ matrix.owncloud-version }}
+        env:
+          ADMIN_USERNAME: admin
+          ADMIN_PASSWORD: admin
+          OWNCLOUD_DOMAIN: localhost:8080
+          HTTP_PORT: 8080
+        options: >-
+          --name owncloud
+        ports:
+          - 8080:8080
+
+    steps:
+      - name: Checkout carddavclient
+        uses: actions/checkout@v3
+      - name: Set up CI environment
+        uses: ./.github/actions/setup
+        with:
+          php-version: '8.0'
+      - name: Run interop tests
+        run: make tests-interop
+      - name: Upload interop-owncloud test coverage reports to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          files: testreports/interop/clover.xml
+          flags: interop
+          name: Carddavclient owncloud interoperability test coverage
+
+  interop-radicale:
+    runs-on: ubuntu-20.04
+
+    env:
+      XDEBUG_MODE: coverage
+      CARDDAVCLIENT_INTEROP_SRV: Radicale
+
+    steps:
+      - name: Checkout carddavclient
+        uses: actions/checkout@v3
+      - name: Start Radicale
+        run: |
+          mkdir -p ${{ github.workspace }}/.github/configs/radicale/data
+          sudo docker run --name radicale -d -p 5232:5232 -v ${{ github.workspace }}/.github/configs/radicale/data:/data -v ${{ github.workspace }}/.github/configs/radicale/config:/config:ro tomsquest/docker-radicale
+      - name: Set up CI environment
+        uses: ./.github/actions/setup
+        with:
+          php-version: '8.0'
+      - name: Create Radicale Addressbooks
+        run: |
+          .github/scripts/createabook.sh "http://127.0.0.1:5232/citest/book1/" 'Book 1' 'First addressbook' citest citest
+          .github/scripts/createabook.sh "http://127.0.0.1:5232/citest/book2/" 'Book 2' 'Second addressbook' citest citest
+      - name: Run interop tests
+        run: make tests-interop
+      - name: Upload interop-radicale test coverage reports to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          files: testreports/interop/clover.xml
+          flags: interop
+          name: Carddavclient radicale interoperability test coverage
+
+  interop-davical:
+    runs-on: ubuntu-20.04
+
+    env:
+      XDEBUG_MODE: coverage
+      CARDDAVCLIENT_INTEROP_SRV: Davical
+      PGHOST: localhost
+      PGUSER: postgres
+
+    services:
+      postgres:
+        image: postgres:12-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --name postgres
+        ports:
+          - 5432:5432
+
+      davical:
+        image: tuxnvape/davical-standalone
+        env:
+          HOST_NAME: davical.localdomain
+          PGSQL_ROOT_PASS: postgres
+          PASSDAVDB: postgres
+          DBHOST: postgres
+          ADMINDAVICALPASS: admin
+        options: >-
+          --health-cmd "nc -z localhost 80"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --name davical
+        ports:
+          - 8088:80
+
+    steps:
+      - name: Checkout carddavclient
+        uses: actions/checkout@v3
+      - name: Set up CI environment
+        uses: ./.github/actions/setup
+        with:
+          php-version: '8.0'
+      - name: Create Davical Addressbooks
+        run: |
+          .github/scripts/createabook.sh "http://localhost:8088/caldav.php/admin/book1/" 'Test addressbook' 'Davical test addresses' admin admin
+      - name: Run interop tests
+        run: make tests-interop
+      - name: Upload interop-davical test coverage reports to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          files: testreports/interop/clover.xml
+          flags: interop
+          name: Carddavclient Davical interoperability test coverage
+
+  interop-icloud:
+    runs-on: ubuntu-20.04
+
+    env:
+      XDEBUG_MODE: coverage
+      CARDDAVCLIENT_INTEROP_SRV: iCloud
+
+    steps:
+      - name: Checkout carddavclient
+        uses: actions/checkout@v3
+      - name: Set up CI environment
+        uses: ./.github/actions/setup
+        with:
+          php-version: '8.0'
+      - name: Run interop tests
+        env:
+          ICLOUD_USER: ${{ secrets.ICLOUD_USER }}
+          ICLOUD_PASSWORD: ${{ secrets.ICLOUD_PASSWORD }}
+          ICLOUD_URL_ABOOK0: ${{ secrets.ICLOUD_URL_ABOOK0 }}
+        run: make tests-interop
+      - name: Upload interop-iCloud test coverage reports to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          files: testreports/interop/clover.xml
+          flags: interop
+          name: Carddavclient iCloud interoperability test coverage
+
+  interop-google:
+    runs-on: ubuntu-20.04
+
+    env:
+      XDEBUG_MODE: coverage
+      CARDDAVCLIENT_INTEROP_SRV: Google
+
+    steps:
+      - name: Checkout carddavclient
+        uses: actions/checkout@v3
+      - name: Set up CI environment
+        uses: ./.github/actions/setup
+        with:
+          php-version: '8.0'
+      - name: Run interop tests
+        env:
+          GOOGLE_USER: ${{ secrets.GOOGLE_USER }}
+          GOOGLE_PASSWORD: ${{ secrets.GOOGLE_PASSWORD }}
+          GOOGLE_URL_ABOOK0: ${{ secrets.GOOGLE_URL_ABOOK0 }}
+        run: make tests-interop
+      - name: Upload interop-Google test coverage reports to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          files: testreports/interop/clover.xml
+          flags: interop
+          name: Carddavclient Google interoperability test coverage
+
+  interop-baikal:
+    strategy:
+      fail-fast: false
+      matrix:
+        baikal-version: ['0.9.3-php8.0', '0.8.0', '0.7.2']
+    runs-on: ubuntu-20.04
+
+    env:
+      XDEBUG_MODE: coverage
+      CARDDAVCLIENT_INTEROP_SRV: Baikal
+
+    services:
+      baikal:
+        image: ckulka/baikal:${{ matrix.baikal-version }}
+        options: >-
+          --name baikal
+        ports:
+          - 8080:80
+
+    steps:
+      - name: Checkout carddavclient
+        uses: actions/checkout@v3
+      - name: Set up CI environment
+        uses: ./.github/actions/setup
+        with:
+          php-version: '8.0'
+      - name: Setup Baikal
+        run: |
+          .github/scripts/deployBaikal.sh
+      - name: Run interop tests
+        run: make tests-interop
+      - name: Upload interop-baikal test coverage reports to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          files: testreports/interop/clover.xml
+          flags: interop
+          name: Carddavclient Baikal interoperability test coverage
