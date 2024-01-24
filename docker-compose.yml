@@ -643,6 +643,37 @@ services:
         - /var/run/docker.sock:/var/run/docker.sock:ro
         - /lib/modules:/lib/modules:ro
 
+    postfix-exporter:
+      image: boky/postfix-exporter
+      container_name: postfix-exporter
+      restart: always
+      depends_on:
+        - postfix-mailcow
+      security_opt:
+        - label=disable
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock:ro
+        - postfix-vol-1:/var/spool/postfix:ro
+      command: --docker.enable --docker.container.id=mailcowdockerized-postfix-mailcow-1
+      labels:
+        metrics.job: "mailcow-postfix"
+        metrics.port: "9154"
+
+    mailcow-exporter:
+      image: thej6s/mailcow-exporter
+      container_name: mailcow-exporter
+      restart: always
+      depends_on:
+        - postfix-mailcow
+      environment:
+        - MAILCOW_EXPORTER_HOST=${MAILCOW_HOSTNAME}
+        - MAILCOW_EXPORTER_API_KEY=${API_KEY_READ_ONLY:-invalid}
+      networks:
+        - mailcow-network
+      labels:
+        metrics.job: "mailcow"
+        metrics.port: "9099"
+
 networks:
   mailcow-network:
     driver: bridge
