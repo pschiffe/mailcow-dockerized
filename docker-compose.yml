@@ -645,7 +645,6 @@ services:
 
     postfix-exporter:
       image: boky/postfix-exporter
-      container_name: postfix-exporter
       restart: always
       depends_on:
         - postfix-mailcow
@@ -661,7 +660,6 @@ services:
 
     mailcow-exporter:
       image: thej6s/mailcow-exporter
-      container_name: mailcow-exporter
       restart: always
       depends_on:
         - postfix-mailcow
