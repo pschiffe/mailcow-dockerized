@@ -16,7 +16,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 sleep 15
 
 # Create database and user
-docker exec -it "$(docker ps -f name=mysql-mailcow -q)" mysql -u root -p"${DBROOT}" -e "
+docker exec "$(docker ps -f name=mysql-mailcow -q)" mysql -u root -p"${DBROOT}" -e "
 CREATE DATABASE IF NOT EXISTS roundcubemail CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS 'roundcube'@'%' IDENTIFIED BY '${DBROUNDCUBE}';
 GRANT ALL PRIVILEGES ON roundcubemail.* TO 'roundcube'@'%';
