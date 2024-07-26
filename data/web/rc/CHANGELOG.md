@@ -1,5 +1,16 @@
 # Changelog Roundcube Webmail
 
+## Release 1.6.7
+
+- Makefile: Use phpDocumentor v3.4 for the Framework docs (#9313)
+- Fix bug where HTML entities in URLs were not decoded on HTML to plain text conversion (#9312)
+- Fix bug in collapsing/expanding folders with some special characters in names (#9324)
+- Fix PHP8 warnings (#9363, #9365, #9429)
+- Fix missing field labels in CSV import, for some locales (#9393)
+- Fix command injection via crafted im_convert_path/im_identify_path on Windows
+- Fix cross-site scripting (XSS) vulnerability in handling list columns from user preferences
+- Fix cross-site scripting (XSS) vulnerability in handling SVG animate attributes
+
 ## Release 1.6.6
 
 - Fix regression in handling LDAP search_fields configuration parameter (#9210)

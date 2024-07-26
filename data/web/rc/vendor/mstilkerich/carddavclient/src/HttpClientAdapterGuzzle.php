@@ -76,6 +76,7 @@ class HttpClientAdapterGuzzle extends HttpClientAdapter
     /**
      * The HTTP authentication scheme to use. Null if not determined yet.
      * @var ?string
+     * @psalm-var ?lowercase-string
      */
     private $authScheme;
 
@@ -161,39 +162,47 @@ class HttpClientAdapterGuzzle extends HttpClientAdapter
     public function sendRequest(string $method, string $uri, array $options = []): Psr7Response
     {
         $doAuth = $this->checkSameDomainAsBase($uri);
-        $guzzleOptions = $this->prepareGuzzleOptions($options, $doAuth);
+        $triedSabreWorkaround = false;
 
         try {
-            $response = $this->client->request($method, $uri, $guzzleOptions);
-
-            // Workaround for Sabre/DAV vs. Curl incompatibility
-            if ($doAuth && $this->checkSabreCurlIncompatibility($method, $response)) {
-                Config::$logger->debug("Attempting workaround for Sabre/Dav / curl incompatibility");
+            /*
+             * Try the request (until first success, or error other than 401 encountered, or all auth schemes tried)
+             *   - Only once in case no authentication shall be attempted
+             *   - Retry with CURLANY in case we encounter an error that looks like Sabre/Curl incompatibility
+             *   - If we get 401 reply, try all auth schemes the server offers and we can support, until success or all
+             *     failed
+             */
+            do {
                 $guzzleOptions = $this->prepareGuzzleOptions($options, $doAuth);
                 $response = $this->client->request($method, $uri, $guzzleOptions);
-            }
 
-            if ($doAuth && $response->getStatusCode() == 401) {
-                foreach ($this->getSupportedAuthSchemes($response) as $scheme) {
-                    $this->authScheme = $scheme;
+                if ($doAuth) {
+                    if ((!$triedSabreWorkaround) && $this->checkSabreCurlIncompatibility($method, $response)) {
+                        // try workaround
+                        $triedSabreWorkaround = true;
+                        continue;
+                    } elseif ($response->getStatusCode() == 401) {
+                        if ($this->authScheme != null) {
+                            $this->failedAuthSchemes[] = $this->authScheme;
+                        }
 
-                    Config::$logger->debug("Trying auth scheme $scheme");
+                        // try next auth scheme
+                        $authSchemes = $this->getSupportedAuthSchemes($response);
 
-                    $guzzleOptions = $this->prepareGuzzleOptions($options, $doAuth);
-                    $response = $this->client->request($method, $uri, $guzzleOptions);
-
-                    if ($response->getStatusCode() != 401) {
-                        break;
+                        if (empty($authSchemes)) {
+                            Config::$logger->debug("None of the available auth schemes worked");
+                            $this->authScheme = null;
+                            break;
+                        } else {
+                            $this->authScheme = $authSchemes[0];
+                            Config::$logger->debug("Trying auth scheme " . $this->authScheme);
+                        }
                     } else {
-                        $this->failedAuthSchemes[] = $scheme;
+                        break;
                     }
                 }
+            } while ($doAuth);
 
-                if ($response->getStatusCode() >= 400) {
-                    Config::$logger->debug("None of the available auth schemes worked");
-                    $this->authScheme = null;
-                }
-            }
 
             return $response;
         } catch (\GuzzleHttp\Exception\RequestException $e) {
@@ -240,8 +249,8 @@ class HttpClientAdapterGuzzle extends HttpClientAdapter
      * We detect the situation by the following indicators:
      *  - We have the curl extension loaded
      *  - REPORT request was sent
+     *  - DIGEST was used as auth scheme
      *  - Result status code is 500
-     *  - The server is a sabre/dav server (X-Sabre-Version header is set)
      *  - The response includes the known error message:
      *    ```xml
      *    <?xml version="1.0" encoding="utf-8"?>
@@ -258,10 +267,11 @@ class HttpClientAdapterGuzzle extends HttpClientAdapter
             extension_loaded("curl")
             && $response->getStatusCode() == 500
             && strcasecmp($method, "REPORT") == 0
-            && $response->hasHeader("X-Sabre-Version")
+            && $this->authScheme == "digest"
         ) {
             $body = (string) $response->getBody();
             if (strpos($body, "The input element to parse is empty. Do not attempt to parse") !== false) {
+                Config::$logger->debug("Attempting workaround for Sabre/Dav / curl incompatibility");
                 $this->authScheme = "curlany";
                 return true;
             }

@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout carddavclient
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up CI environment
         uses: ./.github/actions/setup
         with:
@@ -38,7 +38,7 @@ jobs:
 
     steps:
       - name: Checkout carddavclient
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up CI environment
         uses: ./.github/actions/setup
         with:
@@ -46,7 +46,7 @@ jobs:
       - name: Run unit tests
         run: make unittests
       - name: Upload unit test coverage reports to codecov.io
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: testreports/unit/clover.xml
           flags: unittests
@@ -56,7 +56,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        nextcloud-version: ['24', '25']
+        nextcloud-version: ['27', '26']
 
     runs-on: ubuntu-20.04
 
@@ -74,7 +74,7 @@ jobs:
 
     steps:
       - name: Checkout carddavclient
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up CI environment
         uses: ./.github/actions/setup
         with:
@@ -87,7 +87,7 @@ jobs:
       - name: Run interop tests
         run: make tests-interop
       - name: Upload interop-nextcloud test coverage reports to codecov.io
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: testreports/interop/clover.xml
           flags: interop
@@ -120,7 +120,7 @@ jobs:
 
     steps:
       - name: Checkout carddavclient
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up CI environment
         uses: ./.github/actions/setup
         with:
@@ -128,7 +128,7 @@ jobs:
       - name: Run interop tests
         run: make tests-interop
       - name: Upload interop-owncloud test coverage reports to codecov.io
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: testreports/interop/clover.xml
           flags: interop
@@ -143,7 +143,7 @@ jobs:
 
     steps:
       - name: Checkout carddavclient
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Start Radicale
         run: |
           mkdir -p ${{ github.workspace }}/.github/configs/radicale/data
@@ -159,7 +159,7 @@ jobs:
       - name: Run interop tests
         run: make tests-interop
       - name: Upload interop-radicale test coverage reports to codecov.io
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: testreports/interop/clover.xml
           flags: interop
@@ -176,8 +176,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:12-alpine
+        image: postgres:15-alpine
         env:
+          POSTGRES_USER: 'postgres'
           POSTGRES_PASSWORD: postgres
         options: >-
           --health-cmd pg_isready
@@ -189,25 +190,22 @@ jobs:
           - 5432:5432
 
       davical:
-        image: tuxnvape/davical-standalone
+        image: fintechstudios/davical
         env:
-          HOST_NAME: davical.localdomain
-          PGSQL_ROOT_PASS: postgres
-          PASSDAVDB: postgres
-          DBHOST: postgres
-          ADMINDAVICALPASS: admin
+          PGHOST: postgres
+          PGPASSWORD: davical
+          RUN_MIGRATIONS_AT_STARTUP: true
+          ROOT_PGUSER: postgres
+          ROOT_PGPASSWORD: postgres
+          DAVICAL_ADMIN_PASS: admin
         options: >-
-          --health-cmd "nc -z localhost 80"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
           --name davical
         ports:
           - 8088:80
 
     steps:
       - name: Checkout carddavclient
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up CI environment
         uses: ./.github/actions/setup
         with:
@@ -218,7 +216,7 @@ jobs:
       - name: Run interop tests
         run: make tests-interop
       - name: Upload interop-davical test coverage reports to codecov.io
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: testreports/interop/clover.xml
           flags: interop
@@ -233,7 +231,7 @@ jobs:
 
     steps:
       - name: Checkout carddavclient
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up CI environment
         uses: ./.github/actions/setup
         with:
@@ -245,38 +243,11 @@ jobs:
           ICLOUD_URL_ABOOK0: ${{ secrets.ICLOUD_URL_ABOOK0 }}
         run: make tests-interop
       - name: Upload interop-iCloud test coverage reports to codecov.io
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: testreports/interop/clover.xml
           flags: interop
           name: Carddavclient iCloud interoperability test coverage
-
-  interop-google:
-    runs-on: ubuntu-20.04
-
-    env:
-      XDEBUG_MODE: coverage
-      CARDDAVCLIENT_INTEROP_SRV: Google
-
-    steps:
-      - name: Checkout carddavclient
-        uses: actions/checkout@v3
-      - name: Set up CI environment
-        uses: ./.github/actions/setup
-        with:
-          php-version: '8.0'
-      - name: Run interop tests
-        env:
-          GOOGLE_USER: ${{ secrets.GOOGLE_USER }}
-          GOOGLE_PASSWORD: ${{ secrets.GOOGLE_PASSWORD }}
-          GOOGLE_URL_ABOOK0: ${{ secrets.GOOGLE_URL_ABOOK0 }}
-        run: make tests-interop
-      - name: Upload interop-Google test coverage reports to codecov.io
-        uses: codecov/codecov-action@v3
-        with:
-          files: testreports/interop/clover.xml
-          flags: interop
-          name: Carddavclient Google interoperability test coverage
 
   interop-baikal:
     strategy:
@@ -299,7 +270,7 @@ jobs:
 
     steps:
       - name: Checkout carddavclient
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up CI environment
         uses: ./.github/actions/setup
         with:
@@ -310,7 +281,7 @@ jobs:
       - name: Run interop tests
         run: make tests-interop
       - name: Upload interop-baikal test coverage reports to codecov.io
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: testreports/interop/clover.xml
           flags: interop

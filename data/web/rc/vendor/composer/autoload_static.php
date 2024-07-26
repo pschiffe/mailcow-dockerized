@@ -25,6 +25,7 @@ class ComposerStaticInitd30534b7ccef70d5be1f4ba9bc89dbe4
         'R' => 
         array (
             'RtfHtmlPhp\\' => 11,
+            'Roundcube\\Composer\\' => 19,
         ),
         'P' => 
         array (
@@ -71,14 +72,18 @@ class ComposerStaticInitd30534b7ccef70d5be1f4ba9bc89dbe4
         array (
             0 => __DIR__ . '/..' . '/roundcube/rtf-html-php/src',
         ),
+        'Roundcube\\Composer\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/roundcube/plugin-installer/src',
+        ),
         'Psr\\Log\\' => 
         array (
             0 => __DIR__ . '/..' . '/psr/log/src',
         ),
         'Psr\\Http\\Message\\' => 
         array (
-            0 => __DIR__ . '/..' . '/psr/http-factory/src',
-            1 => __DIR__ . '/..' . '/psr/http-message/src',
+            0 => __DIR__ . '/..' . '/psr/http-message/src',
+            1 => __DIR__ . '/..' . '/psr/http-factory/src',
         ),
         'Psr\\Http\\Client\\' => 
         array (
@@ -119,13 +124,6 @@ class ComposerStaticInitd30534b7ccef70d5be1f4ba9bc89dbe4
     );
 
     public static $prefixesPsr0 = array (
-        'R' => 
-        array (
-            'Roundcube\\Composer' => 
-            array (
-                0 => __DIR__ . '/..' . '/roundcube/plugin-installer/src',
-            ),
-        ),
         'N' => 
         array (
             'Net' => 
@@ -156,10 +154,6 @@ class ComposerStaticInitd30534b7ccef70d5be1f4ba9bc89dbe4
                 0 => __DIR__ . '/..' . '/pear/auth_sasl',
             ),
         ),
-    );
-
-    public static $fallbackDirsPsr0 = array (
-        0 => __DIR__ . '/..' . '/pear/pear-core-minimal/src',
     );
 
     public static $classMap = array (
@@ -453,6 +447,7 @@ class ComposerStaticInitd30534b7ccef70d5be1f4ba9bc89dbe4
         'Net_Socket' => __DIR__ . '/..' . '/pear/net_socket/Net/Socket.php',
         'OS_Guess' => __DIR__ . '/..' . '/pear/pear-core-minimal/src/OS/Guess.php',
         'PEAR' => __DIR__ . '/..' . '/pear/pear-core-minimal/src/PEAR.php',
+        'PEAR_Error' => __DIR__ . '/..' . '/pear/pear-core-minimal/src/PEAR.php',
         'PEAR_ErrorStack' => __DIR__ . '/..' . '/pear/pear-core-minimal/src/PEAR/ErrorStack.php',
         'PEAR_Exception' => __DIR__ . '/..' . '/pear/pear_exception/PEAR/Exception.php',
         'Psr\\Http\\Client\\ClientExceptionInterface' => __DIR__ . '/..' . '/psr/http-client/src/ClientExceptionInterface.php',
@@ -480,10 +475,10 @@ class ComposerStaticInitd30534b7ccef70d5be1f4ba9bc89dbe4
         'Psr\\Log\\LoggerInterface' => __DIR__ . '/..' . '/psr/log/src/LoggerInterface.php',
         'Psr\\Log\\LoggerTrait' => __DIR__ . '/..' . '/psr/log/src/LoggerTrait.php',
         'Psr\\Log\\NullLogger' => __DIR__ . '/..' . '/psr/log/src/NullLogger.php',
-        'Roundcube\\Composer\\ExtensionInstaller' => __DIR__ . '/..' . '/roundcube/plugin-installer/src/Roundcube/Composer/ExtensionInstaller.php',
-        'Roundcube\\Composer\\PluginInstaller' => __DIR__ . '/..' . '/roundcube/plugin-installer/src/Roundcube/Composer/PluginInstaller.php',
-        'Roundcube\\Composer\\RoundcubeInstaller' => __DIR__ . '/..' . '/roundcube/plugin-installer/src/Roundcube/Composer/RoundcubeInstaller.php',
-        'Roundcube\\Composer\\SkinInstaller' => __DIR__ . '/..' . '/roundcube/plugin-installer/src/Roundcube/Composer/SkinInstaller.php',
+        'Roundcube\\Composer\\ExtensionInstaller' => __DIR__ . '/..' . '/roundcube/plugin-installer/src/ExtensionInstaller.php',
+        'Roundcube\\Composer\\PluginInstaller' => __DIR__ . '/..' . '/roundcube/plugin-installer/src/PluginInstaller.php',
+        'Roundcube\\Composer\\RoundcubeInstaller' => __DIR__ . '/..' . '/roundcube/plugin-installer/src/RoundcubeInstaller.php',
+        'Roundcube\\Composer\\SkinInstaller' => __DIR__ . '/..' . '/roundcube/plugin-installer/src/SkinInstaller.php',
         'RtfHtmlPhp\\ControlSymbol' => __DIR__ . '/..' . '/roundcube/rtf-html-php/src/ControlSymbol.php',
         'RtfHtmlPhp\\ControlWord' => __DIR__ . '/..' . '/roundcube/rtf-html-php/src/ControlWord.php',
         'RtfHtmlPhp\\Document' => __DIR__ . '/..' . '/roundcube/rtf-html-php/src/Document.php',
@@ -601,7 +596,6 @@ class ComposerStaticInitd30534b7ccef70d5be1f4ba9bc89dbe4
             $loader->prefixLengthsPsr4 = ComposerStaticInitd30534b7ccef70d5be1f4ba9bc89dbe4::$prefixLengthsPsr4;
             $loader->prefixDirsPsr4 = ComposerStaticInitd30534b7ccef70d5be1f4ba9bc89dbe4::$prefixDirsPsr4;
             $loader->prefixesPsr0 = ComposerStaticInitd30534b7ccef70d5be1f4ba9bc89dbe4::$prefixesPsr0;
-            $loader->fallbackDirsPsr0 = ComposerStaticInitd30534b7ccef70d5be1f4ba9bc89dbe4::$fallbackDirsPsr0;
             $loader->classMap = ComposerStaticInitd30534b7ccef70d5be1f4ba9bc89dbe4::$classMap;
 
         }, null, ClassLoader::class);
