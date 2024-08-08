@@ -3,7 +3,7 @@
         'name' => 'roundcube/roundcubemail',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => 'd7c9842b0cd8834a3208343206ae9da8a91dce86',
+        'reference' => 'becfe1f3b3639e514d00afffd683ff171c7aeb76',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -247,7 +247,7 @@
         'roundcube/roundcubemail' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => 'd7c9842b0cd8834a3208343206ae9da8a91dce86',
+            'reference' => 'becfe1f3b3639e514d00afffd683ff171c7aeb76',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

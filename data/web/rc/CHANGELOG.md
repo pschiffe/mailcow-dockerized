@@ -1,5 +1,23 @@
 # Changelog Roundcube Webmail
 
+## Release 1.6.8
+
+- Managesieve: Protect special scripts in managesieve_kolab_master mode
+- Fix newmail_notifier notification focus in Chrome (#9467)
+- Fix fatal error when parsing some TNEF attachments (#9462)
+- Fix double scrollbar when composing a mail with many plain text lines (#7760)
+- Fix decoding mail parts with multiple base64-encoded text blocks (#9290)
+- Fix bug where some messages could get malformed in an import from a MBOX file (#9510)
+- Fix invalid line break characters in multi-line text in Sieve scripts (#9543)
+- Fix bug where "with attachment" filter could fail on some fts engines (#9514)
+- Fix bug where an unhandled exception was caused by an invalid image attachment (#9475)
+- Fix bug where a long subject title could not be displayed in some cases (#9416)
+- Fix infinite loop when parsing malformed Sieve script (#9562)
+- Fix bug where imap_conn_option's 'socket' was ignored (#9566)
+- Fix XSS vulnerability in post-processing of sanitized HTML content [CVE-2024-42009]
+- Fix XSS vulnerability in serving of attachments other than HTML or SVG [CVE-2024-42008]
+- Fix information leak (access to remote content) via insufficient CSS filtering [CVE-2024-42010]
+
 ## Release 1.6.7
 
 - Makefile: Use phpDocumentor v3.4 for the Framework docs (#9313)
