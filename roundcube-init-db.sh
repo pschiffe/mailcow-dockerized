@@ -22,4 +22,6 @@ CREATE USER IF NOT EXISTS 'roundcube'@'%' IDENTIFIED BY '${DBROUNDCUBE}';
 GRANT ALL PRIVILEGES ON roundcubemail.* TO 'roundcube'@'%';
 "
 
+docker exec "$(docker ps -f name=php-fpm-mailcow -q)" bash -c "mysql -u roundcube -p${DBROUNDCUBE} roundcubemail < /web/rc/SQL/mysql.initial.sql"
+
 touch roundcube-init-db.sh.done
