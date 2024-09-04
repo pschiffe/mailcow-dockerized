@@ -1,5 +1,10 @@
 # Changelog Roundcube Webmail
 
+## Release 1.6.9
+
+- Fix regression where printing/scaling/rotating image attachments was broken (#9571)
+- Fix regression where HTML messages were displayed unstyled (#9586)
+
 ## Release 1.6.8
 
 - Managesieve: Protect special scripts in managesieve_kolab_master mode
