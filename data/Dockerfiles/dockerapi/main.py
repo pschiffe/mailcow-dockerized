@@ -34,9 +34,9 @@ async def lifespan(app: FastAPI):
 
   # Init redis client
   if os.environ['REDIS_SLAVEOF_IP'] != "":
-    redis_client = redis = await aioredis.from_url(f"redis://{os.environ['REDIS_SLAVEOF_IP']}:{os.environ['REDIS_SLAVEOF_PORT']}/0")
+    redis_client = redis = await aioredis.from_url(f"redis://{os.environ['REDIS_SLAVEOF_IP']}:{os.environ['REDIS_SLAVEOF_PORT']}/0", password=os.environ['REDISPASS'])
   else:
-    redis_client = redis = await aioredis.from_url("redis://redis-mailcow:6379/0")
+    redis_client = redis = await aioredis.from_url("redis://redis-mailcow:6379/0", password=os.environ['REDISPASS'])
 
   # Init docker clients
   sync_docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock', version='auto')
@@ -241,9 +241,9 @@ async def handle_pubsub_messages(channel: aioredis.client.PubSub):
               else:
                 dockerapi.logger.error("api call: missing container_name, post_action or request")
             else:
-              dockerapi.logger.error("Unknwon PubSub recieved - %s" % json.dumps(data_json))
+              dockerapi.logger.error("Unknown PubSub received - %s" % json.dumps(data_json))
           else:
-            dockerapi.logger.error("Unknwon PubSub recieved - %s" % json.dumps(data_json))
+            dockerapi.logger.error("Unknown PubSub received - %s" % json.dumps(data_json))
 
         await asyncio.sleep(0.0)
     except asyncio.TimeoutError:

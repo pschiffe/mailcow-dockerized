@@ -4,9 +4,9 @@ exec 5>&1
 
 # Do not attempt to write to slave
 if [[ ! -z ${REDIS_SLAVEOF_IP} ]]; then
-  export REDIS_CMDLINE="redis-cli -h ${REDIS_SLAVEOF_IP} -p ${REDIS_SLAVEOF_PORT}"
+  export REDIS_CMDLINE="redis-cli -h ${REDIS_SLAVEOF_IP} -p ${REDIS_SLAVEOF_PORT} -a ${REDISPASS} --no-auth-warning"
 else
-  export REDIS_CMDLINE="redis-cli -h redis -p 6379"
+  export REDIS_CMDLINE="redis-cli -h redis -p 6379 -a ${REDISPASS} --no-auth-warning"
 fi
 
 until [[ $(${REDIS_CMDLINE} PING) == "PONG" ]]; do
@@ -138,7 +138,7 @@ log_f "Resolver OK"
 log_f "Waiting for domain table..."
 while [[ -z ${DOMAIN_TABLE} ]]; do
   curl --silent http://nginx.${COMPOSE_PROJECT_NAME}_mailcow-network/ >/dev/null 2>&1
-  DOMAIN_TABLE=$(mysql --socket=/var/run/mysqld/mysqld.sock -u ${DBUSER} -p${DBPASS} ${DBNAME} -e "SHOW TABLES LIKE 'domain'" -Bs)
+  DOMAIN_TABLE=$(mariadb --skip-ssl --socket=/var/run/mysqld/mysqld.sock -u ${DBUSER} -p${DBPASS} ${DBNAME} -e "SHOW TABLES LIKE 'domain'" -Bs)
   [[ -z ${DOMAIN_TABLE} ]] && sleep 10
 done
 log_f "OK" no_date
@@ -159,18 +159,6 @@ while true; do
   fi
   if [[ ! -f ${ACME_BASE}/acme/account.pem ]]; then
     log_f "Generating missing Lets Encrypt account key..."
-    if [[ ! -z ${ACME_CONTACT} ]]; then
-      if ! verify_email "${ACME_CONTACT}"; then
-        log_f "Invalid email address, will not start registration!"
-        sleep 365d
-        exec $(readlink -f "$0")
-      else
-        ACME_CONTACT_PARAMETER="--contact mailto:${ACME_CONTACT}"
-        log_f "Valid email address, using ${ACME_CONTACT} for registration"
-      fi
-    else
-      ACME_CONTACT_PARAMETER=""
-    fi
     openssl genrsa 4096 > ${ACME_BASE}/acme/account.pem
   else
     log_f "Using existing Lets Encrypt account key ${ACME_BASE}/acme/account.pem"
@@ -231,7 +219,7 @@ while true; do
 
   #########################################
   # IP and webroot challenge verification #
-  SQL_DOMAINS=$(mysql --socket=/var/run/mysqld/mysqld.sock -u ${DBUSER} -p${DBPASS} ${DBNAME} -e "SELECT domain FROM domain WHERE backupmx=0 and active=1" -Bs)
+  SQL_DOMAINS=$(mariadb --skip-ssl --socket=/var/run/mysqld/mysqld.sock -u ${DBUSER} -p${DBPASS} ${DBNAME} -e "SELECT domain FROM domain WHERE backupmx=0 and active=1" -Bs)
   if [[ ! $? -eq 0 ]]; then
     log_f "Failed to read SQL domains, retrying in 1 minute..."
     sleep 1m
@@ -299,7 +287,7 @@ while true; do
     VALIDATED_CERTIFICATES+=("${CERT_NAME}")
 
     # obtain server certificate if required
-    ACME_CONTACT_PARAMETER=${ACME_CONTACT_PARAMETER} DOMAINS=${SERVER_SAN_VALIDATED[@]} /srv/obtain-certificate.sh rsa
+    DOMAINS=${SERVER_SAN_VALIDATED[@]} /srv/obtain-certificate.sh rsa
     RETURN="$?"
     if [[ "$RETURN" == "0" ]]; then # 0 = cert created successfully
       CERT_AMOUNT_CHANGED=1

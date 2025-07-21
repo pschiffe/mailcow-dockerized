@@ -56,27 +56,50 @@ if [[ ! -z ${REDIS_SLAVEOF_IP} ]]; then
   cat <<EOF > /etc/rspamd/local.d/redis.conf
 read_servers = "redis:6379";
 write_servers = "${REDIS_SLAVEOF_IP}:${REDIS_SLAVEOF_PORT}";
+password = "${REDISPASS}";
 timeout = 10;
 EOF
-  until [[ $(redis-cli -h redis-mailcow PING) == "PONG" ]]; do
+  until [[ $(redis-cli -h redis-mailcow -a ${REDISPASS} --no-auth-warning PING) == "PONG" ]]; do
     echo "Waiting for Redis @redis-mailcow..."
     sleep 2
   done
-  until [[ $(redis-cli -h ${REDIS_SLAVEOF_IP} -p ${REDIS_SLAVEOF_PORT} PING) == "PONG" ]]; do
+  until [[ $(redis-cli -h ${REDIS_SLAVEOF_IP} -p ${REDIS_SLAVEOF_PORT} -a ${REDISPASS} --no-auth-warning PING) == "PONG" ]]; do
     echo "Waiting for Redis @${REDIS_SLAVEOF_IP}..."
     sleep 2
   done
-  redis-cli -h redis-mailcow SLAVEOF ${REDIS_SLAVEOF_IP} ${REDIS_SLAVEOF_PORT}
+  redis-cli -h redis-mailcow -a ${REDISPASS} --no-auth-warning SLAVEOF ${REDIS_SLAVEOF_IP} ${REDIS_SLAVEOF_PORT}
 else
   cat <<EOF > /etc/rspamd/local.d/redis.conf
 servers = "redis:6379";
+password = "${REDISPASS}";
 timeout = 10;
 EOF
-  until [[ $(redis-cli -h redis-mailcow PING) == "PONG" ]]; do
+  until [[ $(redis-cli -h redis-mailcow -a ${REDISPASS} --no-auth-warning PING) == "PONG" ]]; do
     echo "Waiting for Redis slave..."
     sleep 2
   done
-  redis-cli -h redis-mailcow SLAVEOF NO ONE
+  redis-cli -h redis-mailcow -a ${REDISPASS} --no-auth-warning SLAVEOF NO ONE
+fi
+
+if [[ "${SKIP_OLEFY}" =~ ^([yY][eE][sS]|[yY])+$ ]]; then
+  if [[ -f /etc/rspamd/local.d/external_services.conf ]]; then
+    rm /etc/rspamd/local.d/external_services.conf
+  fi
+else
+  cat <<EOF > /etc/rspamd/local.d/external_services.conf
+oletools {
+  # default olefy settings
+  servers = "olefy:10055";
+  # needs to be set explicitly for Rspamd < 1.9.5
+  scan_mime_parts = true;
+  # mime-part regex matching in content-type or filename
+  # block all macros
+  extended = true;
+  max_size = 3145728;
+  timeout = 20.0;
+  retransmits = 1;
+}
+EOF
 fi
 
 # Provide additional lua modules
