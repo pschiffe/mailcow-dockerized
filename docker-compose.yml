@@ -200,15 +200,13 @@ services:
         ofelia.job-exec.phpfpm_ldap_sync.schedule: "@every 1m"
         ofelia.job-exec.phpfpm_ldap_sync.no-overlap: "true"
         ofelia.job-exec.phpfpm_ldap_sync.command: "/bin/bash -c \"php /crons/ldap-sync.php || exit 0\""
+        ofelia.job-exec.roundcube_cleandb.schedule: "@every 168h"
+        ofelia.job-exec.roundcube_cleandb.user: "www-data"
+        ofelia.job-exec.roundcube_cleandb.command: "/bin/bash -c '[[ \"$${DBROUNDCUBE:-}\" ]] && /web/rc/bin/cleandb.sh'"
       networks:
         mailcow-network:
           aliases:
             - phpfpm
-      labels:
-        ofelia.enabled: "true"
-        ofelia.job-exec.roundcube_cleandb.schedule: "@every 168h"
-        ofelia.job-exec.roundcube_cleandb.user: "www-data"
-        ofelia.job-exec.roundcube_cleandb.command: "/bin/bash -c '[[ \"$${DBROUNDCUBE:-}\" ]] && /web/rc/bin/cleandb.sh'"
 
     sogo-mailcow:
       image: ghcr.io/mailcow/sogo:1.133
