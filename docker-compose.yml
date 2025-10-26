@@ -684,6 +684,7 @@ services:
       environment:
         - MAILCOW_EXPORTER_HOST=${MAILCOW_HOSTNAME}
         - MAILCOW_EXPORTER_API_KEY=${API_KEY_READ_ONLY:-invalid}
+        - MAILCOW_EXPORTER_SECURITY_DISABLE_ACCESS_PROTECTION=true
       networks:
         - mailcow-network
       labels:
