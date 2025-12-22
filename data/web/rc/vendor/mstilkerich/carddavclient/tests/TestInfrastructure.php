@@ -22,7 +22,7 @@ final class TestInfrastructure
     /** @var ?TestLogger Logger object used to store log messages produced during the tests */
     private static $logger;
 
-    public static function init(LoggerInterface $httpLogger = null): void
+    public static function init(?LoggerInterface $httpLogger = null): void
     {
         if (!isset(self::$logger)) {
             self::$logger = new TestLogger();
@@ -57,7 +57,7 @@ final class TestInfrastructure
      * CardDAV server to data retrieved back from the server.
      *
      * - Google:
-     *   - Omits TYPE attribute in results from addressbook-query
+     *   - Adds PREF TYPE attribute in results from addressbook-query for first TEL/EMAIL property
      *   - Changes case of the type attribute (work -> WORK)
      *   - Overrides the UID in new cards with a server-side-assigned UID
      */

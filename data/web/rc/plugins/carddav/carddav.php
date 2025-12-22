@@ -38,7 +38,7 @@ if (file_exists(dirname(__FILE__) . "/vendor/autoload.php")) {
 /**
  * @psalm-import-type SaveDataFromDC from DataConversion
  */
-// phpcs:ignore PSR1.Classes.ClassDeclaration, Squiz.Classes.ValidClassName -- class name(space) expected by roundcube
+// phpcs:ignore PSR1.Classes.ClassDeclaration,Squiz.Classes.ValidClassName -- class name(space) expected by roundcube
 class carddav extends rcube_plugin implements RcmInterface
 {
     /**
@@ -46,7 +46,7 @@ class carddav extends rcube_plugin implements RcmInterface
      *
      * During development, it is set to the last release and added the suffix +dev.
      */
-    public const PLUGIN_VERSION = 'v5.1.0';
+    public const PLUGIN_VERSION = 'v5.1.2';
 
     /**
      * Information about this plugin that is queried by roundcube.
@@ -206,7 +206,11 @@ class carddav extends rcube_plugin implements RcmInterface
     public function showMessage(string $msg, string $msgType = 'notice', bool $override = false, int $timeout = 0): void
     {
         $rcube = rcube::get_instance();
-        $rcube->output->show_message($msg, $msgType, null, $override, $timeout);
+        $output = $rcube->output;
+
+        if ($output instanceof rcmail_output) {
+            $output->show_message($msg, $msgType, null, $override, $timeout);
+        }
     }
 
     public function clientCommand(string $method, ...$arguments): void

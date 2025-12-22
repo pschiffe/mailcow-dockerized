@@ -16,6 +16,7 @@ use MStilkerich\CardDavClient\{Account,AddressbookCollection};
 use MStilkerich\CardDavClient\XmlElements\Filter;
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject\Component\VCard;
+use Sabre\VObject;
 use MStilkerich\Tests\CardDavClient\Interop\TestInfrastructureSrv as TIS;
 
 /**
@@ -105,19 +106,34 @@ final class AddressbookQueryTest extends TestCase
         // so we will notice if we stick to that rule.
         $datasets = [
             // test whether a property is defined / not defined
-            'HasNoEmail' => [ ['EMAIL' => null], [ 2 ], 0, 0 ],
-            'HasEmail' => [ ['EMAIL' => '//'], [ 0, 1, 3 ], 0, 0 ],
+            'HasNoEmail' => [ ['EMAIL' => null], [ 2 ], TIS::BUG_PROPFILTER_PROPEXISTENCE_IGNORED, 0 ],
+            'HasEmail' => [ ['EMAIL' => '//'], [ 0, 1, 3 ], TIS::BUG_PROPFILTER_PROPEXISTENCE_IGNORED, 0 ],
             // check that property names are treated case insensitive
-            'HasNoEmailDiffCase' => [ ['email' => null], [ 2 ], TIS::BUG_CASESENSITIVE_NAMES, 0 ],
-            'HasEmailDiffCase' => [ ['email' => '//'], [ 0, 1, 3 ], TIS::BUG_CASESENSITIVE_NAMES, 0 ],
+            'HasNoEmailDiffCase' => [
+                ['email' => null],
+                [ 2 ],
+                TIS::BUG_CASESENSITIVE_NAMES | TIS::BUG_PROPFILTER_PROPEXISTENCE_IGNORED,
+                0
+            ],
+            'HasEmailDiffCase' => [
+                ['email' => '//'],
+                [ 0, 1, 3 ],
+                TIS::BUG_CASESENSITIVE_NAMES | TIS::BUG_PROPFILTER_PROPEXISTENCE_IGNORED,
+                0
+            ],
 
             // simple text matches against property values
-            'EmailEquals' => [ ['EMAIL' => '/johndoe@example.com/='], [ 0 ], 0, 0 ],
+            'EmailEquals' => [ ['EMAIL' => '/johndoe@example.com/='], [ 0 ], TIS::BUG_PROPFILTER_EQUALS_BROKEN, 0 ],
             'EmailContains' => [ ['EMAIL' => '/mu@ab/'], [ 1 ], 0, 0 ],
             'EmailStartsWith' => [ ['EMAIL' => '/max/^'], [ 1 ], 0, 0 ],
             'EmailEndsWith' => [ ['EMAIL' => '/@example.com/$'], [ 0 ], 0, 0 ],
             // check matching is case insensitive
-            'EmailEqualsDiffCase' => [ ['EMAIL' => '/johNDOE@EXAmple.com/='], [ 0 ], 0, 0 ],
+            'EmailEqualsDiffCase' => [
+                ['EMAIL' => '/johNDOE@EXAmple.com/='],
+                [ 0 ],
+                TIS::BUG_PROPFILTER_EQUALS_BROKEN,
+                0
+            ],
             'EmailContainsDiffCase' => [ ['EMAIL' => '/MU@ab/'], [ 1 ], 0, 0 ],
             'EmailStartsWithDiffCase' => [ ['EMAIL' => '/MAX/^'], [ 1 ], 0, 0 ],
             'EmailEndsWithDiffCase' => [ ['EMAIL' => '/@EXAmple.com/$'], [ 0 ], 0, 0 ],
@@ -127,14 +143,15 @@ final class AddressbookQueryTest extends TestCase
             'EmailEndsNotWith' => [
                 ['EMAIL' => '!/@abcd.com/$'],
                 [ 0, 3 ],
-                TIS::BUG_INVTEXTMATCH_MATCHES_UNDEF_PROPS,
+                TIS::BUG_INVTEXTMATCH_MATCHES_UNDEF_PROPS | TIS::BUG_INVTEXTMATCH_IGNORED,
                 0
             ],
             // Case 2: Some, but not all EMAIL properties match the negated filter
             'EmailContainsNotSome' => [
                 ['EMAIL' => '!/@example.com/'],
                 [ 0, 1, 3 ],
-                TIS::BUG_INVTEXTMATCH_MATCHES_UNDEF_PROPS | TIS::BUG_INVTEXTMATCH_SOMEMATCH,
+                TIS::BUG_INVTEXTMATCH_MATCHES_UNDEF_PROPS | TIS::BUG_INVTEXTMATCH_SOMEMATCH
+                | TIS::BUG_INVTEXTMATCH_IGNORED,
                 0
             ],
 
@@ -142,25 +159,25 @@ final class AddressbookQueryTest extends TestCase
             'ParamNotDefined' => [
                 ['EMAIL' => ['TYPE', null]],
                 [ 1, 3 ],
-                TIS::BUG_PARAMNOTDEF_MATCHES_UNDEF_PROPS,
+                TIS::BUG_PARAMNOTDEF_MATCHES_UNDEF_PROPS | TIS::BUG_ADDED_PREFTYPE_PARAM,
                 TIS::FEAT_PARAMFILTER
             ],
             'ParamDefined' => [
                 ['EMAIL' => ['TYPE', '//']],
                 [ 0 ],
-                TIS::BUG_PARAMDEF,
+                TIS::BUG_PARAMDEF | TIS::BUG_ADDED_PREFTYPE_PARAM,
                 TIS::FEAT_PARAMFILTER
             ],
             'ParamNotDefinedDiffCase' => [
                 ['EMAIL' => ['type', null]],
                 [ 1, 3 ],
-                TIS::BUG_PARAMNOTDEF_MATCHES_UNDEF_PROPS | TIS::BUG_CASESENSITIVE_NAMES,
+                TIS::BUG_PARAMNOTDEF_MATCHES_UNDEF_PROPS | TIS::BUG_CASESENSITIVE_NAMES | TIS::BUG_ADDED_PREFTYPE_PARAM,
                 TIS::FEAT_PARAMFILTER
             ],
             'ParamDefinedDiffCase' => [
                 ['EMAIL' => ['type', '//']],
                 [ 0 ],
-                TIS::BUG_PARAMDEF | TIS::BUG_CASESENSITIVE_NAMES,
+                TIS::BUG_PARAMDEF | TIS::BUG_CASESENSITIVE_NAMES | TIS::BUG_ADDED_PREFTYPE_PARAM,
                 TIS::FEAT_PARAMFILTER
             ],
             // property with multiple values, where one has the parameter defined, the other has not -> must not match
@@ -193,7 +210,7 @@ final class AddressbookQueryTest extends TestCase
             'ParamEndsWith' => [
                 ['EMAIL' => ['TYPE', '/ORK/$']],
                 [ 0 ],
-                TIS::BUG_PARAMTEXTMATCH_BROKEN,
+                TIS::BUG_PARAMTEXTMATCH_BROKEN | TIS::BUG_ADDED_PREFTYPE_PARAM,
                 TIS::FEAT_PARAMFILTER
             ],
             // check matching is case insensitive
@@ -224,7 +241,7 @@ final class AddressbookQueryTest extends TestCase
             'ParamEndsWithDiffCase' => [
                 ['EMAIL' => ['TYPE', '/orK/$']],
                 [ 0 ],
-                TIS::BUG_PARAMTEXTMATCH_BROKEN,
+                TIS::BUG_PARAMTEXTMATCH_BROKEN | TIS::BUG_ADDED_PREFTYPE_PARAM,
                 TIS::FEAT_PARAMFILTER
             ],
 
@@ -282,8 +299,18 @@ final class AddressbookQueryTest extends TestCase
             ],
 
             // tests on properties with group
-            'HasNoGrpEmail' => [ ['item1.EMAIL' => null], [ 0, 1, 2 ], TIS::BUG_HANDLE_PROPGROUPS_IN_QUERY, 0 ],
-            'HasGrpEmail' => [ ['item1.EMAIL' => '//'], [ 3 ], TIS::BUG_HANDLE_PROPGROUPS_IN_QUERY, 0 ],
+            'HasNoGrpEmail' => [
+                ['item1.EMAIL' => null],
+                [ 0, 1, 2 ],
+                TIS::BUG_HANDLE_PROPGROUPS_IN_QUERY | TIS::BUG_PROPFILTER_PROPEXISTENCE_IGNORED,
+                0
+            ],
+            'HasGrpEmail' => [
+                ['item1.EMAIL' => '//'],
+                [ 3 ],
+                TIS::BUG_HANDLE_PROPGROUPS_IN_QUERY | TIS::BUG_PROPFILTER_PROPEXISTENCE_IGNORED,
+                0
+            ],
             'GrpEmailEquals' => [ ['item1.EMAIL' => '/foo@ex.com/='], [ 3 ], TIS::BUG_HANDLE_PROPGROUPS_IN_QUERY, 0 ],
             // must not match card 0
             'GrpEmailContains' => [ ['item1.EMAIL' => '/@ex/'], [ 3 ], TIS::BUG_HANDLE_PROPGROUPS_IN_QUERY, 0 ],
@@ -335,8 +362,20 @@ final class AddressbookQueryTest extends TestCase
         // so we will notice if we stick to that rule.
         $datasets = [
             // test whether a property is defined / not defined
-            'HasTelOrIMPP' => [ false, ['TEL' => '//', 'IMPP' => '//' ], [ 2, 3 ], 0, 0 ],
-            'HasEmailAndIMPP' => [ true, ['EMAIL' => '//', 'IMPP' => '//' ], [ 3 ], 0, TIS::FEAT_FILTER_ALLOF ],
+            'HasTelOrIMPP' => [
+                false,
+                ['TEL' => '//', 'IMPP' => '//' ],
+                [ 2, 3 ],
+                TIS::BUG_PROPFILTER_PROPEXISTENCE_IGNORED,
+                0
+            ],
+            'HasEmailAndIMPP' => [
+                true,
+                ['EMAIL' => '//', 'IMPP' => '//' ],
+                [ 3 ],
+                TIS::BUG_PROPFILTER_PROPEXISTENCE_IGNORED,
+                TIS::FEAT_FILTER_ALLOF
+            ],
 
             // multiple conditions in the same prop-filter
             // this one matches on the same property instance johndoe@example.com
@@ -519,12 +558,49 @@ final class AddressbookQueryTest extends TestCase
             $this->assertArrayHasKey($expCard["uri"], $result);
             $expUris[] = $expCard["uri"];
             $rcvCard = $result[$expCard["uri"]];
+            $rcvCard["vcard"] = $this->clearPrefType($rcvCard["vcard"]);
             TestInfrastructure::compareVCards($expCard["vcard"], $rcvCard["vcard"], true);
         }
 
         foreach ($result as $uri => $res) {
             $this->assertContains($uri, $expUris, "Unexpected card in result: " . ($res["vcard"]->NICKNAME ?? ""));
         }
+    }
+
+    /**
+     * Clears TYPE=PREF values from EMAIL, TEL and XMPP properties.
+     *
+     * This is another workaround for Google which adds a TYPE=PREF parameter to those properties on the server side.
+     */
+    private function clearPrefType(VCard $vcard): VCard
+    {
+        foreach (['EMAIL', 'TEL', 'IMPP'] as $propName) {
+            if (!isset($vcard->{$propName})) {
+                continue;
+            }
+
+            /** @var VObject\Property $prop */
+            foreach ($vcard->{$propName} as $prop) {
+                if (isset($prop['TYPE'])) {
+                    /** @var VObject\Parameter $typeParam */
+                    $typeParam = $prop['TYPE'];
+                    /** @var list<string> $types */
+                    $types = $typeParam->getParts();
+                    $types = array_filter(
+                        $types,
+                        function (string $t) {
+                            return strcasecmp($t, 'PREF') !== 0;
+                        }
+                    );
+                    if (empty($types)) {
+                        unset($prop['TYPE']);
+                    } else {
+                        $prop['TYPE'] = $types;
+                    }
+                }
+            }
+        }
+        return $vcard;
     }
 
     private function createSamples(string $abookname): AddressbookCollection

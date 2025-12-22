@@ -1,10 +1,26 @@
 # Changelog for RCMCardDAV
 
+## Version 5.1.2 (to 5.1.0)
+
+- Re-release of 5.1.1 the only change being that the dependencies shipped in the tarball release are updated, notably
+  including carddavclient 1.4.2 with a workaround for bearer authentication with `nextcloud/user_oidc` plugin
+
+## Version 5.1.1 (to 5.1.0)
+
+- Fix migration 7: The migration replaced placeholders in the addressbook URLs with the data of the user during whose
+  login the migration was executed. This would result in broken URLs in such cases.
+- Adjust interfaces for roundcube 1.7 changes (Fixes: #467, #468, and #473 (thanks @nick-oconnor))
+- VCards imported via Roundcube import function are stored to server as is (except for compatibility fixes, e.g. adding
+  UID) (Fixes #470)
+
 ## Version 5.1.0 (to 5.0.1)
 
 - Allow to hide contacts without email also for user-defined addressbooks (Fixes #429)
-- Re-introduced option `preemptive_basic_auth` to send HTTP basic Authorization header with every request (Fixes #407)
+- Re-introduced option `preemptive_basic_auth` to send HTTP basic Authorization header with every request. Also settable
+  via user-interface. (Fixes #407)
 - Support setting roundcube's default addressbook to an addressbook from a preset (Fixes #440)
+- New option `ssl_noverify` to disable verification of the CardDAV server`s SSL certificate in HTTPS connections. Also
+  settable via user-interface.
 
 ## Version 5.0.1 (to 5.0.0)
 

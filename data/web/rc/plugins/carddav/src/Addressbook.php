@@ -336,10 +336,8 @@ class Addressbook extends rcube_addressbook
                 $this->page_size = $pageSizeBackup;
             }
 
-            while (
-                /** @var ?SaveData $save_data */
-                $save_data = $result->next()
-            ) {
+            /** @var SaveData $save_data */
+            foreach ($result as $save_data) {
                 if ($this->checkPostSearchFilter($save_data, $required, $allMustMatch, $postSearchFilter, $mode)) {
                     /** @var array{ID: string} $save_data */
                     $ids[] = $save_data["ID"];
@@ -448,7 +446,7 @@ class Addressbook extends rcube_addressbook
      * @param ?string $sort_order Sort order
      */
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName -- method name defined by rcube_addressbook class
-    public function set_sort_order($sort_col, $sort_order = null): void
+    public function set_sort_order($sort_col = null, $sort_order = null): void
     {
         if (isset($sort_col) && key_exists($sort_col, $this->coltypes)) {
             $this->sort_col = $sort_col;
@@ -474,13 +472,28 @@ class Addressbook extends rcube_addressbook
         $infra = Config::inst();
         $logger = $infra->logger();
 
-        /** @psalm-var SaveData $save_data */
         try {
-            $logger->info("insert(" . ($save_data["name"] ?? "no name") . ", $check)");
             $db = $infra->db();
 
+            /** @psalm-var SaveData $save_data */
+            $logger->info("insert(" . ($save_data["name"] ?? "no name") . ", $check)");
             /** @psalm-var SaveData $save_data XXX temporary vimeo/psalm#8980 workaround */
-            $vcard = $this->dataConverter->fromRoundcube($save_data);
+
+
+            // If this save_data was produced by rcmcarddav, we can directly use the original vcard
+            // (e.g. move from one addressbook to another)
+            if (isset($save_data['_carddav_vcard'])) {
+                $vcard = $save_data['_carddav_vcard'];
+
+            // If roundcube has set a vcard property (e.g., import), directly import it to the CardDAV server, skipping
+            // Roundcube's save_data conversion (and our conversion back to save data).
+            } elseif (isset($save_data['vcard'])) {
+                $vcard = $this->parseVCard($save_data['vcard']);
+
+            // Otherwise (e.g., new contact created in Roundcube), convert the save_data to a vcard
+            } else {
+                $vcard = $this->dataConverter->fromRoundcube($save_data);
+            }
 
             $davAbook = $this->getCardDavObj();
             [ 'uri' => $uri ] = $davAbook->createCard($vcard);
@@ -564,8 +577,8 @@ class Addressbook extends rcube_addressbook
     /**
      * Mark one or more contact records as deleted
      *
-     * @param array $ids   Record identifiers
-     * @param bool  $force Remove records irreversible (see self::undelete)
+     * @param array|string $ids   Record identifiers
+     * @param bool         $force Remove records irreversible (see self::undelete)
      *
      * @return int|false Number of removed records, False on failure
      */
@@ -574,6 +587,10 @@ class Addressbook extends rcube_addressbook
         $infra = Config::inst();
         $logger = $infra->logger();
         $db = $infra->db();
+
+        if (is_string($ids)) {
+            $ids = explode(self::SEPARATOR, $ids);
+        }
 
         /** @var list<string> $ids */
         $deleted = 0;
@@ -691,7 +708,7 @@ class Addressbook extends rcube_addressbook
      * This filter mechanism is applied in addition to other filter mechanisms, see the description of the count()
      * operation.
      *
-     * @param null|0|string $group_id Database identifier of the group. 0/"0"/null to reset the group filter.
+     * @param null|int|string $group_id Database identifier of the group. 0/"0"/null to reset the group filter.
      */
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName -- method name defined by rcube_addressbook class
     public function set_group($group_id): void
@@ -702,7 +719,8 @@ class Addressbook extends rcube_addressbook
         try {
             $logger->debug("set_group($group_id)");
 
-            if ($group_id) {
+            if ((bool) $group_id) {
+                $group_id = (string) $group_id;
                 $db = $infra->db();
                 // check for valid ID with the database - this throws an exception if the group cannot be found
                 $db->lookup(["id" => $group_id, "abook_id" => $this->id], ["id"], "groups");
@@ -994,9 +1012,7 @@ class Addressbook extends rcube_addressbook
             $davAbook = $this->getCardDavObj();
 
             if (is_string($ids)) {
-                $ids_string = $ids;
-                /** @psalm-var list<string> $ids */
-                $ids = explode(self::SEPARATOR, $ids_string);
+                $ids = explode(self::SEPARATOR, $ids);
             }
 
             $db->startTransaction();
@@ -1062,7 +1078,6 @@ class Addressbook extends rcube_addressbook
                     $ids, // unfiltered ids allowed in adjustContactCategories()
                     /** @param list<string> $groups */
                     function (array &$groups, string $contact_id) use ($logger, $groupname, &$added): bool {
-                        /** @var int $added */
                         if (self::stringsAddRemove($groups, [ $groupname ])) {
                             $logger->debug("Adding contact $contact_id to category $groupname");
                             ++$added;
@@ -1073,7 +1088,6 @@ class Addressbook extends rcube_addressbook
                         return false;
                     }
                 );
-                /** @var int $added Reference from the closure appears to confuse psalm */
             }
 
             $this->resync();
@@ -1140,7 +1154,6 @@ class Addressbook extends rcube_addressbook
                     $ids, // unfiltered ids allowed in adjustContactCategories()
                     /** @param list<string> $groups */
                     function (array &$groups, string $contact_id) use ($logger, $groupname, &$deleted): bool {
-                        /** @var int $deleted */
                         if (self::stringsAddRemove($groups, [], [$groupname])) {
                             $logger->debug("Removing contact $contact_id from category $groupname");
                             ++$deleted;
@@ -1151,7 +1164,6 @@ class Addressbook extends rcube_addressbook
                         return false;
                     }
                 );
-                /** @psalm-var int $deleted Reference from the closure appears to confuse psalm */
             }
 
             $this->resync();
@@ -1691,7 +1703,7 @@ class Addressbook extends rcube_addressbook
         }
 
         // TODO Better if we could handle this without a separate SQL query here, but requires join or sub-query
-        if ($this->group_id) {
+        if ((bool) $this->group_id) {
             $contactsInGroup = $this->getContactIdsForGroup((string) $this->group_id);
 
             if (empty($contactsInGroup)) {
@@ -1772,16 +1784,15 @@ class Addressbook extends rcube_addressbook
             if ($col == '*') { // any contact attribute must match $val
                 foreach ($save_data as $k => $v) {
                     // Skip photo/vcard to avoid download - matching against photo is no meaningful use case
-                    if ($k !== "photo" && $k !== "vcard" && strpos($k, "_carddav_") !== 0) {
-                        $v = is_array($v) ? $v : (string) $v;
+                    if (!is_object($v)) {
                         if ($this->compare_search_value($k, $v, $val, $mode)) {
                             $psFilterMatched = true;
                             break;
                         }
                     }
                 }
-            } elseif (isset($save_data[$col])) {
-                $sdVal = is_array($save_data[$col]) ? $save_data[$col] : (string) $save_data[$col];
+            } elseif (isset($save_data[$col]) && !is_object($save_data[$col])) {
+                $sdVal = $save_data[$col];
                 $psFilterMatched = $this->compare_search_value($col, $sdVal, $val, $mode);
             }
 

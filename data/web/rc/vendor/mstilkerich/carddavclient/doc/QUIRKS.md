@@ -19,17 +19,17 @@ is implemented. For known server issues, see the Known issues section below.
 - Sabre/DAV is the CardDAV implementation used by Nextcloud, Owncloud, Baïkal, and grammm (and possibly more).
 - Radicale is the CardDAV implementation used by Synology DSM contacts app (again, there may be more I am not aware of).
 
-Feature                     | iCloud | Google | Sabre | Davical | Radicale
-----------------------------|--------|--------|-------|---------|---------
-sync-collection             |   ✓    |   ✓    |   ✓   |   ✓     |   ✓
-addressbook-multiget        |   ✓    |   ✓    |   ✓   |   ✓     |   ✓
-Partial cards with multiget |   ✗    |   ✗    |   ✗   |   ✗     |   ✗
-addressbook-query           |   ✓    |   ✓    |   ✓   |   ✓     |   ✓
-Partial cards with query    |   ✗    |   ✓    |   ✓   |   ✓     |   ✗
-Result limitation with query|   ✗    |   ✓    |   ✓   |   ✓     |   ✗
-FEAT_FILTER_ALLOF           |   ✗    |   ✓    |   ✓   |   ✓     |   ✓
-FEAT_PARAMFILTER            |   ✗    |   ✓    |   ✓   |   ✓     |   ✓
-FEAT_ALLOF_SINGLEPROP       |   ✓    |   ✗    |   ✗   |   ✓     |   ✗
+Feature                     | iCloud | Google | Sabre | Davical | Radicale | SOGo
+----------------------------|--------|--------|-------|---------|----------|-----
+sync-collection             |   ✓    |   ✓    |   ✓   |   ✓     |   ✓      |  ✓
+addressbook-multiget        |   ✓    |   ✓    |   ✓   |   ✓     |   ✓      |  ✓
+Partial cards with multiget |   ✗    |   ✗    |   ✗   |   ✗     |   ✗      |  ✗
+addressbook-query           |   ✓    |   ✓    |   ✓   |   ✓     |   ✓      |  ✓
+Partial cards with query    |   ✗    |   ✓    |   ✓   |   ✓     |   ✗      |  ✗
+Result limitation with query|   ✗    |   ✓    |   ✓   |   ✓     |   ✗      |  ✗
+FEAT_FILTER_ALLOF           |   ✗    |   ✓    |   ✓   |   ✓     |   ✓      |  ✓
+FEAT_PARAMFILTER            |   ✗    |   ✓    |   ✓   |   ✓     |   ✓      |  ✗
+FEAT_ALLOF_SINGLEPROP       |   ✓    |   ✗    |   ✗   |   ✓     |   ✗      |  ✗
 
 
 ### Feature descriptions
@@ -185,6 +185,7 @@ User-visibile impact and possible workaround | The user must not assume that a n
 Affected servers / services | Google Contacts
 Description | This is probably within what the server is allowed to do, but something the user should be aware of. Google Contacts will modify VCards stored to the server, probably "lost in translation" to an internal data model and back. Currently, so following have been observed:
  []() | - The `TYPE` parameter that can be used with properties such as `EMAIL` is constrained to a single value. Values not known to Google Contacts are discarded. This includes values explicitly allowed by RFC2426, e.g. *internet* as an `EMAIL` type.
+BUG_ADDED_PREFTYPE_PARAM | - The `TYPE` parameter that can be used with properties such as `EMAIL` will be extended by the PREF value for the first property of each time unless it already exists.
  []() | - For `IMPP` properties, the protocol scheme and `X-SERVICE-TYPE` parameter spelling (e.g. *jabber* becomes *Jabber*) is adapted by the server.
 Affected operations | `AddressbookCollection::createCard()`, `AddressbookCollection::updateCard()`
 User-visibile impact and possible workaround | The user should not expect a VCard stored to the server to be identical with the VCard read back from the server. To preserve custom labels on the server, the `X-ABLabel` extension can be used, however, support by CardDAV client applications is not as good as for the `TYPE` parameter.
@@ -194,13 +195,27 @@ User-visibile impact and possible workaround | The user should not expect a VCar
 
 Because there are so many issues concerning the handling of the addressbook-query report, these are grouped in this section. Most problems concern the use of negated text matches or parameter filters, and thus can be avoided by not using such filters.
 
+BUG_PROPFILTER_PROPEXISTENCE_IGNORED | Queries for (non-)existence properties in the cards of interest yield wrong result
+--------|----------------------------------------------------------
+Affected servers / services | [SOGo](https://bugs.sogo.nu/view.php?id=5954)
+Description | In addressbook-query, the server yields wrong results when provided a prop-filter element without sub-elements (filter cards that HAVE the property), or with an is-not-defined sub-element (filter cards that DO NOT HAVE the property). SOGo will return all cards in response to such queries.
+Affected operations | `AddressbookCollection::query()`
+User-visibile impact and possible workaround | The `query()` result may contain unexpected cards.
+
+BUG_PROPFILTER_EQUALS_BROKEN | Equals match yields wrong results in addressbook query
+--------|----------------------------------------------------------
+Affected servers / services | [SOGo](https://bugs.sogo.nu/view.php?id=5955)
+Description | In addressbook-query, the server yields wrong results searching for cards where a property equals a search value. SOGo will return an empty result for such queries. For the specific case where the target property has a group prefix (e.g., `item1.EMAIL`), all cards of the addressbook are returned instead.
+Affected operations | `AddressbookCollection::query()`
+User-visibile impact and possible workaround | The `query()` result may contain unexpected cards, or lack expected cards.
+
+
 BUG_CASESENSITIVE_NAMES | Names treated case sensitive in addressbook query
 --------|----------------------------------------------------------
 Affected servers / services | Google Contacts, [Davical](https://gitlab.com/davical-project/awl/-/merge_requests/20), iCloud
 Description | In addressbook-query, the server treats property and group names case sensitive, i.e. when searching for a property `email` it will not match an `EMAIL` property. However, according to RFC 6350, names of properties and groups are case insensitive. For Google, the issue additionally applies to parameter names.
 Affected operations | `AddressbookCollection::query()`
 User-visibile impact and possible workaround | The `query()` result may lack cards that would have matched the filter. Use uppercase spelling in your conditions for maximunm interoperability, as this is the recommended spelling and some servers automatically convert names to uppercase when a card is stored. This will not completely mitigate the issue though.
-
 
 []() | Query on multi-value properties may wrongly filter out cards
 --------|----------------------------------------------------------
@@ -220,7 +235,7 @@ User-visibile impact and possible workaround | The `query()` result may contain 
 
 BUG_HANDLE_PROPGROUPS_IN_QUERY | Property groups are not properly handled
 --------|----------------------------------------------------------
-Affected servers / services | [Davical](https://gitlab.com/davical-project/awl/-/merge_requests/20), Radicale
+Affected servers / services | [Davical](https://gitlab.com/davical-project/awl/-/merge_requests/20), Radicale, [SOGo](https://bugs.sogo.nu/view.php?id=5955)
 Description | Property groups (e.g. `G1.EMAIL`) are not properly handled in prop-filters. A prop-filter where the name attribute includes a group prefix must only match properties with that group prefix.
 Affected operations | `AddressbookCollection::query()` when using property names with group prefix
 User-visibile impact and possible workaround | The `query()` result may contain unexpected results.
@@ -243,6 +258,14 @@ User-visibile impact and possible workaround | The `query()` result may lack exp
 
 #### Related to the use of negated text matches
 
+BUG_INVTEXTMATCH_IGNORED | Negation of text match is ignored
+--------|----------------------------------------------------------
+Affected servers / services | [SOGo](https://bugs.sogo.nu/view.php?id=5956)
+Description | When issuing an addressbook-query with a prop-filter containing a negated text-match, the server ignored the negation and instead returns the cards that match the text filter.
+Affected operations | `AddressbookCollection::query()` when using negated text matches inside the `$conditions` for a property.
+User-visibile impact and possible workaround | The `query()` result contains unexpected results, and lacks the expected results.
+
+
 BUG_INVTEXTMATCH_MATCHES_UNDEF_PROPS | Negated text matches yield results the lack the matched property
 --------|----------------------------------------------------------
 Affected servers / services | [Google Contacts](https://issuetracker.google.com/issues/178251714), [Davical](https://gitlab.com/davical-project/awl/-/merge_requests/15)
@@ -261,7 +284,7 @@ User-visibile impact and possible workaround | The `query()` result may contain 
 
 BUG_INVTEXTMATCH_SOMEMATCH | Negated text match misses cards that also have property instances matching the non-negated filter
 --------|----------------------------------------------------------
-Affected servers / services | Google Contacts, [Sabre/DAV](https://github.com/sabre-io/dav/pull/1322), [Radicale](https://github.com/Kozea/Radicale/issues/1140)
+Affected servers / services | Google Contacts, [Sabre/DAV <4.1.5](https://github.com/sabre-io/dav/pull/1322), [Radicale](https://github.com/Kozea/Radicale/issues/1140)
 Description | A negated text-match on a property yields wrong results if there is a property instance matching the text-match and another that does not. This is because the server will simply invert the result of checking all properties, when it should check if there is any property NOT matching the text-filter (!= NO property matching the text filter).
 Affected operations | `AddressbookCollection::query()` when using negated text matches inside the `$conditions` for a property.
 User-visibile impact and possible workaround | The `query()` result may lack cards that match the filter when using negated text matches on properties.
@@ -286,7 +309,7 @@ User-visibile impact and possible workaround | The `query()` result may lack car
 
 BUG_PARAMFILTER_ON_NONEXISTENT_PARAM | Internal server error on param-filter when property lacks the parameter
 --------|----------------------------------------------------------
-Affected servers / services | [Sabre/DAV](https://github.com/sabre-io/dav/pull/1322)
+Affected servers / services | [Sabre/DAV <4.1.5](https://github.com/sabre-io/dav/pull/1322)
 Description | When filtering on a parameter, an internal server error will occur if the server encounters a property of the asked for type that does not have the parameter. Examples: Filtering for `'EMAIL' => ['TYPE', '/foo']` raises a server error when there is a VCard with an `EMAIL` property that does not have a `TYPE` parameter.
 Affected operations | `AddressbookCollection::query()` when using parameter filters
 User-visibile impact and possible workaround | The request will fail with an internal server error.
@@ -294,7 +317,7 @@ User-visibile impact and possible workaround | The request will fail with an int
 
 []() | Negated text-match on parameter yields wrong results
 --------|----------------------------------------------------------
-Affected servers / services | [Sabre/DAV](https://github.com/sabre-io/dav/pull/1322)
+Affected servers / services | [Sabre/DAV <4.1.5](https://github.com/sabre-io/dav/pull/1322)
 Description | A negated text-match on a parameter yields wrong results if there is a property instance with a parameter matching the text-match and another that does not. This is because the server will simply invert the result of checking all properties.
 Affected operations | `AddressbookCollection::query()` when using negated text matches inside the `$conditions` for a parameter filter.
 User-visibile impact and possible workaround | The `query()` result may lack cards that match the filter when using negated text matches on parameters.

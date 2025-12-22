@@ -1,5 +1,20 @@
 # Changelog for CardDAV client library for PHP ("PHP-CardDavClient")
 
+## Version 1.4.2 (to 1.4.1)
+
+- Fix: When the URL of the collection was given without a trailing slash, some operations (e.g.
+  AddressbookCollection::createCard) would target the wrong URL (stripping the last component of the base URI).
+  Typically, this would result in the operation to fail because the CardDAV server did not allow the operation for the
+  wrong URI (Fixes #35).
+- Changed discovery behavior: The discovery URL is now tried first, before attempting a discovery via DNS SRV/TXT and
+  /well-known/ URI. This is based on the problem that a user can explicitly give the discovery URI in the Account, but
+  it would never be tried if the auto-discovery meachanmisms yield a record. It can make a difference in special cases,
+  i.e. when a single domain hosts multiple carddav services under different URIs, and the discovery could only be set up
+  for one of them. Then even when the user gave a specific service URI as discovery URI, it would only be tried after
+  the auto-discovery had failed for the others. This is probably not intended and thus this is considered a bugfix.
+- Add Nextcloud user_oidc authorization support via Bearer (#34, thanks @Zepmann)
+- Fix PHP 8.4 deprecation warnings (#33, thanks @fwiep)
+
 ## Version 1.4.1 (to 1.4.0)
 
 - Report requests to Sabre/DAV servers with Http-Digest authentication failed if issued from an
@@ -38,7 +53,7 @@
 ## Version 1.2.1 (to 1.2.0)
 
 - Change license to less restrictive MIT license
-- Add workaround to enable Bearer authentication with yahoo CardDAV API (#14)
+- Add workaround to enable Bearer authentication with yahoo CardDAV API (#14, thanks @DrFairy)
 
 ## Version 1.2.0 (to 1.1.0)
 
