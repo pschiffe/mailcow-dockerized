@@ -3,7 +3,7 @@
         'name' => 'roundcube/roundcubemail',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => '642ff513667d93609370864b738ec99ead409378',
+        'reference' => '10bc8275cf2674464159bea031c075d8c5a5bc9b',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -146,8 +146,8 @@
             'dev_requirement' => false,
         ),
         'pear/pear-core-minimal' => array(
-            'pretty_version' => 'v1.10.17',
-            'version' => '1.10.17.0',
+            'pretty_version' => 'v1.10.18',
+            'version' => '1.10.18.0',
             'reference' => 'c7b55789d01de0ce090d289b73f1bbd6a2f113b1',
             'type' => 'library',
             'install_path' => __DIR__ . '/../pear/pear-core-minimal',
@@ -247,7 +247,7 @@
         'roundcube/roundcubemail' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => '642ff513667d93609370864b738ec99ead409378',
+            'reference' => '10bc8275cf2674464159bea031c075d8c5a5bc9b',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -265,7 +265,7 @@
         'rsky/pear-core-min' => array(
             'dev_requirement' => false,
             'replaced' => array(
-                0 => 'v1.10.17',
+                0 => 'v1.10.18',
             ),
         ),
         'sabre/uri' => array(
@@ -278,9 +278,9 @@
             'dev_requirement' => false,
         ),
         'sabre/vobject' => array(
-            'pretty_version' => '4.5.7',
-            'version' => '4.5.7.0',
-            'reference' => 'ff22611a53782e90c97be0d0bc4a5f98a5c0a12c',
+            'pretty_version' => '4.5.8',
+            'version' => '4.5.8.0',
+            'reference' => 'd554eb24d64232922e1eab5896cc2f84b3b9ffb1',
             'type' => 'library',
             'install_path' => __DIR__ . '/../sabre/vobject',
             'aliases' => array(),
