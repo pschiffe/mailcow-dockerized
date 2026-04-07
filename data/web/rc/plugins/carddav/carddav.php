@@ -37,6 +37,7 @@ if (file_exists(dirname(__FILE__) . "/vendor/autoload.php")) {
 
 /**
  * @psalm-import-type SaveDataFromDC from DataConversion
+ * @psalm-type RcAddressbookInfo = array{id: string, name: string, groups: bool, autocomplete: bool, readonly: bool}
  */
 // phpcs:ignore PSR1.Classes.ClassDeclaration,Squiz.Classes.ValidClassName -- class name(space) expected by roundcube
 class carddav extends rcube_plugin implements RcmInterface
@@ -46,7 +47,7 @@ class carddav extends rcube_plugin implements RcmInterface
      *
      * During development, it is set to the last release and added the suffix +dev.
      */
-    public const PLUGIN_VERSION = 'v5.1.2';
+    public const PLUGIN_VERSION = 'v5.1.3';
 
     /**
      * Information about this plugin that is queried by roundcube.
@@ -374,7 +375,6 @@ class carddav extends rcube_plugin implements RcmInterface
     /**
      * Adds the user's CardDAV addressbooks to Roundcube's addressbook list.
      *
-     * @psalm-type RcAddressbookInfo = array{id: string, name: string, groups: bool, autocomplete: bool, readonly: bool}
      * @psalm-param array{sources: array<string, RcAddressbookInfo>} $p
      * @return array{sources: array<string, RcAddressbookInfo>}
      */

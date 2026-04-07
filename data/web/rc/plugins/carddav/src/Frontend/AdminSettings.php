@@ -93,7 +93,9 @@ class AdminSettings
      *     List of attributes that are applicable to an addressbook. Used to filter out those attributes from the preset
      *     that are relevant for the template addressbook settings.
      */
-    private const ABOOK_ATTRS = ['name', 'active', 'refresh_time', 'use_categories', 'require_always_email'];
+    private const ABOOK_ATTRS = [
+        'name', 'active', 'readonly', 'refresh_time', 'use_categories', 'require_always_email'
+    ];
 
     /** @var Preset Default values for the preset attributes */
     private const PRESET_DEFAULTS = [
@@ -165,19 +167,19 @@ class AdminSettings
      * @var PasswordStoreScheme encryption scheme
      * @readonly
      */
-    public $pwStoreScheme = 'encrypted';
+    public $pwStoreScheme;
 
     /**
      * @var bool Global preference "fixed"
      * @readonly
      */
-    public $forbidCustomAddressbooks = false;
+    public $forbidCustomAddressbooks;
 
     /**
      * @var bool Global preference "hide_preferences"
      * @readonly
      */
-    public $hidePreferences = false;
+    public $hidePreferences;
 
     /**
      * @var array<SpecialAbookType,SpecialAbookMatch> Match settings for special addressbooks
@@ -203,7 +205,7 @@ class AdminSettings
 
             if (!is_array($prefs)) {
                 $logger->error("Error in config.inc.php: \$prefs must be an array");
-                return;
+                $prefs = [];
             }
         }
 
@@ -216,16 +218,18 @@ class AdminSettings
         }
 
         // Extract global preferences
+        $pwStoreScheme = 'encrypted';
         if (isset($gprefs['pwstore_scheme'])) {
             $scheme = (string) $gprefs['pwstore_scheme'];
 
             if (in_array($scheme, self::PWSTORE_SCHEMES)) {
                 /** @var PasswordStoreScheme $scheme */
-                $this->pwStoreScheme = $scheme;
+                $pwStoreScheme = $scheme;
             } else {
                 $logger->error("Invalid pwStoreScheme $scheme in config.inc.php - using default 'encrypted'");
             }
         }
+        $this->pwStoreScheme = $pwStoreScheme;
 
         $this->forbidCustomAddressbooks = (bool) ($gprefs['fixed'] ?? false);
         $this->hidePreferences = (bool) ($gprefs['hide_preferences'] ?? false);
@@ -438,7 +442,7 @@ class AdminSettings
         // otherwise there may be user changes that should not be destroyed
         $pa = [];
         foreach ($preset['fixed'] as $k) {
-            if (isset($preset[$k]) && isset($accountCfg[$k]) && $accountCfg[$k] != $preset[$k]) {
+            if (key_exists($k, $preset) && key_exists($k, $accountCfg) && $accountCfg[$k] !== $preset[$k]) {
                 $pa[$k] = $preset[$k];
             }
         }

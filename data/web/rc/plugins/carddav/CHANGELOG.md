@@ -1,6 +1,16 @@
 # Changelog for RCMCardDAV
 
-## Version 5.1.2 (to 5.1.0)
+## Version 5.1.3 (to 5.1.2)
+- Postgres: Support tables in a schema within the Postgres database through roundcube's `db_prefix` option, for example
+  "rcschema.". (Fixes #495)
+- readonly attribute for preset addressbooks was not honored for accounts for that the user had never saved settings
+  (Fixes #497)
+- Improvement: Do not query CardDAV addressbook when no communication is needed (#500)
+- Improvement: Store password placeholders plaintext in the database (#498)
+- Fix: null `discovery_url` would not be updated in preset even if fixed
+- Fix OAuth Bearer token authentication in roundcube 1.7 (#501)
+
+## Version 5.1.2 (to 5.1.1)
 
 - Re-release of 5.1.1 the only change being that the dependencies shipped in the tarball release are updated, notably
   including carddavclient 1.4.2 with a workaround for bearer authentication with `nextcloud/user_oidc` plugin
