@@ -6,6 +6,8 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'Symfony\\Polyfill\\Php85\\' => array($vendorDir . '/symfony/polyfill-php85'),
+    'Symfony\\Polyfill\\Php80\\' => array($vendorDir . '/symfony/polyfill-php80'),
     'Sabre\\Xml\\' => array($vendorDir . '/sabre/xml/lib'),
     'Sabre\\VObject\\' => array($vendorDir . '/sabre/vobject/lib'),
     'Sabre\\Uri\\' => array($vendorDir . '/sabre/uri/lib'),
@@ -14,12 +16,18 @@ return array(
     'Psr\\Log\\' => array($vendorDir . '/psr/log/src'),
     'Psr\\Http\\Message\\' => array($vendorDir . '/psr/http-factory/src', $vendorDir . '/psr/http-message/src'),
     'Psr\\Http\\Client\\' => array($vendorDir . '/psr/http-client/src'),
+    'Psr\\EventDispatcher\\' => array($vendorDir . '/psr/event-dispatcher/src'),
+    'Nette\\' => array($vendorDir . '/nette/schema/src', $vendorDir . '/nette/utils/src'),
     'Masterminds\\' => array($vendorDir . '/masterminds/html5/src'),
     'MStilkerich\\RCMCardDAV\\' => array($baseDir . '/plugins/carddav/src'),
     'MStilkerich\\CardDavClient\\' => array($vendorDir . '/mstilkerich/carddavclient/src'),
+    'League\\Config\\' => array($vendorDir . '/league/config/src'),
+    'League\\CommonMark\\' => array($vendorDir . '/league/commonmark/src'),
+    'IPLib\\' => array($vendorDir . '/mlocati/ip-lib/src'),
     'GuzzleHttp\\Psr7\\' => array($vendorDir . '/guzzlehttp/psr7/src'),
     'GuzzleHttp\\Promise\\' => array($vendorDir . '/guzzlehttp/promises/src'),
     'GuzzleHttp\\' => array($vendorDir . '/guzzlehttp/guzzle/src'),
+    'Dflydev\\DotAccessData\\' => array($vendorDir . '/dflydev/dot-access-data/src'),
     'DASPRiD\\Enum\\' => array($vendorDir . '/dasprid/enum/src'),
     'BaconQrCode\\' => array($vendorDir . '/bacon/bacon-qr-code/src'),
 );

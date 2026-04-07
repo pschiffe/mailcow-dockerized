@@ -12,7 +12,7 @@ return array(
     $vendorDir . '/pear/crypt_gpg',
     $vendorDir . '/pear/mail_mime',
     $vendorDir . '/pear/net_smtp',
+    $vendorDir . '/pear/net_socket',
     $vendorDir . '/pear/pear-core-minimal/src',
     $vendorDir . '/pear/pear_exception',
-    $vendorDir . '/pear/net_socket',
 );
