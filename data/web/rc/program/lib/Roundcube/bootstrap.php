@@ -57,7 +57,7 @@ foreach ($config as $optname => $optval) {
 }
 
 // framework constants
-define('RCUBE_VERSION', '1.6.17');
+define('RCUBE_VERSION', '1.6.18');
 define('RCUBE_CHARSET', 'UTF-8');
 define('RCUBE_TEMP_FILE_PREFIX', 'RCMTEMP');
 
