@@ -185,8 +185,7 @@ services:
         - WEBAUTHN_ONLY_TRUSTED_VENDORS=${WEBAUTHN_ONLY_TRUSTED_VENDORS:-n}
         - CLUSTERMODE=${CLUSTERMODE:-}
         - ADDITIONAL_SERVER_NAMES=${ADDITIONAL_SERVER_NAMES:-}
-        - DBROUNDCUBE=${DBROUNDCUBE:-}
-        - ROUNDCUBE_DES_KEY=${ROUNDCUBE_DES_KEY:-}
+        - ENABLE_ROUNDCUBE=${DBROUNDCUBE:+y}
       restart: always
       labels:
         ofelia.enabled: "true"
@@ -196,13 +195,62 @@ services:
         ofelia.job-exec.phpfpm_ldap_sync.schedule: "0 * * * * *"
         ofelia.job-exec.phpfpm_ldap_sync.no-overlap: "true"
         ofelia.job-exec.phpfpm_ldap_sync.command: "/bin/bash -c \"php /crons/ldap-sync.php || exit 0\""
-        ofelia.job-exec.roundcube_cleandb.schedule: "@every 168h"
-        ofelia.job-exec.roundcube_cleandb.user: "www-data"
-        ofelia.job-exec.roundcube_cleandb.command: "/bin/bash -c '[[ \"$${DBROUNDCUBE:-}\" ]] && /web/rc/bin/cleandb.sh'"
       networks:
         mailcow-network:
           aliases:
             - phpfpm
+
+    roundcube-mailcow:
+      image: roundcube/roundcubemail:1.6.18-apache-nonroot
+      depends_on:
+        mysql-mailcow:
+          condition: service_healthy
+      entrypoint: /hooks/entrypoint.sh
+      command: ["apache2-foreground"]
+      dns:
+        - ${IPV4_NETWORK:-172.22.1}.254
+      environment:
+        - DBROUNDCUBE=${DBROUNDCUBE:-}
+        - ROUNDCUBE_DES_KEY=${ROUNDCUBE_DES_KEY:-}
+        - ROUNDCUBEMAIL_DB_TYPE=mysql
+        - ROUNDCUBEMAIL_DB_HOST=mysql
+        - ROUNDCUBEMAIL_DB_USER=roundcube
+        - ROUNDCUBEMAIL_DB_PASSWORD=${DBROUNDCUBE:-}
+        - ROUNDCUBEMAIL_DB_NAME=roundcubemail
+        - ROUNDCUBEMAIL_DEFAULT_HOST=dovecot
+        - ROUNDCUBEMAIL_DEFAULT_PORT=143
+        - ROUNDCUBEMAIL_SMTP_SERVER=postfix
+        - ROUNDCUBEMAIL_SMTP_PORT=588
+        - ROUNDCUBEMAIL_DES_KEY=${ROUNDCUBE_DES_KEY:-}
+        - ROUNDCUBEMAIL_PLUGINS=acl,archive,carddav,managesieve,markasjunk,password,roundcube_dovecot_client_ip,zipdownload
+        - ROUNDCUBEMAIL_COMPOSER_PLUGINS=roundcube/carddav:5.1.3,takerukoushirou/roundcube-dovecot_client_ip:1.0.3
+        - COMPOSER_HOME=/tmp/composer
+        - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
+        - API_KEY=${API_KEY:-invalid}
+        - IPV4_NETWORK=${IPV4_NETWORK:-172.22.1}
+        - IPV6_NETWORK=${IPV6_NETWORK:-fd4d:6169:6c63:6f77::/64}
+        - TZ=${TZ}
+      volumes:
+        - ./data/conf/roundcube:/var/roundcube/config:ro,Z
+        - ./data/conf/roundcube/php-upload.ini:/usr/local/etc/php/conf.d/zzz-roundcube-upload.ini:ro,Z
+        - ./data/hooks/roundcube:/hooks:ro,Z
+        - ./data/hooks/roundcube/post-setup:/entrypoint-tasks/post-setup:ro,Z
+      restart: always
+      labels:
+        ofelia.enabled: "true"
+        ofelia.job-exec.roundcube_cleandb.schedule: "@every 168h"
+        ofelia.job-exec.roundcube_cleandb.user: "www-data"
+        ofelia.job-exec.roundcube_cleandb.command: "/bin/bash -c '[[ -n \"$${DBROUNDCUBE:-}\" && -x /var/www/html/bin/cleandb.sh ]] && /var/www/html/bin/cleandb.sh || true'"
+      healthcheck:
+        test: ["CMD", "/hooks/healthcheck.sh"]
+        interval: 30s
+        timeout: 5s
+        retries: 3
+        start_period: 90s
+      networks:
+        mailcow-network:
+          aliases:
+            - roundcube
 
     sogo-mailcow:
       image: ghcr.io/mailcow/sogo:5.12.10-1
@@ -423,6 +471,7 @@ services:
         - redis-mailcow
         - php-fpm-mailcow
         - sogo-mailcow
+        - roundcube-mailcow
         - rspamd-mailcow
       image: ghcr.io/mailcow/nginx:1.30.4-1
       dns:
