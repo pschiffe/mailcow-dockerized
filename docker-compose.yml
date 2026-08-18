@@ -204,7 +204,7 @@ services:
       image: roundcube/roundcubemail:1.6.18-apache-nonroot
       depends_on:
         mysql-mailcow:
-          condition: service_healthy
+          condition: service_started
       entrypoint: /hooks/entrypoint.sh
       command: ["apache2-foreground"]
       dns:
