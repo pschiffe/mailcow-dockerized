@@ -223,8 +223,8 @@ services:
         - ROUNDCUBEMAIL_SMTP_SERVER=postfix
         - ROUNDCUBEMAIL_SMTP_PORT=588
         - ROUNDCUBEMAIL_DES_KEY=${ROUNDCUBE_DES_KEY:-}
-        - ROUNDCUBEMAIL_PLUGINS=acl,archive,carddav,managesieve,markasjunk,password,roundcube_dovecot_client_ip,zipdownload
-        - ROUNDCUBEMAIL_COMPOSER_PLUGINS=roundcube/carddav:5.1.3,takerukoushirou/roundcube-dovecot_client_ip:1.0.3
+        - ROUNDCUBEMAIL_PLUGINS=acl,archive,carddav,dovecot_client_ip,managesieve,markasjunk,password,zipdownload
+        - ROUNDCUBEMAIL_COMPOSER_PLUGINS=roundcube/carddav:~5,foorschtbar/dovecot_client_ip:~2
         - COMPOSER_HOME=/tmp/composer
         - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
         - API_KEY=${API_KEY:-invalid}
