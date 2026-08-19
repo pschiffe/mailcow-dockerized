@@ -205,6 +205,8 @@ services:
       depends_on:
         mysql-mailcow:
           condition: service_started
+        dovecot-mailcow:
+          condition: service_started
       entrypoint: /hooks/entrypoint.sh
       command: ["apache2-foreground"]
       dns:
