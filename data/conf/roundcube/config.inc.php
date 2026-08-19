@@ -18,9 +18,6 @@ $config['password_mailcow_api_host'] = 'https://' . getenv('MAILCOW_HOSTNAME');
 $config['password_mailcow_api_token'] = getenv('API_KEY');
 
 $roundcube_nginx_ip = gethostbyname('nginx');
-$config['proxy_whitelist'] = filter_var($roundcube_nginx_ip, FILTER_VALIDATE_IP)
-    ? [$roundcube_nginx_ip]
-    : [];
 $config['dovecot_client_ip_trusted_proxies'] = filter_var($roundcube_nginx_ip, FILTER_VALIDATE_IP)
     ? [$roundcube_nginx_ip]
     : [];
