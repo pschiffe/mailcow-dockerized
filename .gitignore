@@ -63,8 +63,6 @@ data/web/.well-known/acme-challenge
 data/web/css/build/0081-custom-mailcow.css
 data/web/inc/app_info.inc.php
 data/web/nextcloud*/
-data/web/rc/logs/[a-z]*
-data/web/rc/temp/[a-z]*
 docker-compose.override.yml
 mailcow.conf
 mailcow.conf_backup

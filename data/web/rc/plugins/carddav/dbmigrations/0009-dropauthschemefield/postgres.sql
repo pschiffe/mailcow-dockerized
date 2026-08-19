@@ -1,1 +1,0 @@
-ALTER TABLE TABLE_PREFIXcarddav_addressbooks DROP COLUMN authentication_scheme RESTRICT;

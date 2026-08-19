@@ -1,1 +1,0 @@
-ALTER TABLE TABLE_PREFIXcarddav_addressbooks DROP authentication_scheme;

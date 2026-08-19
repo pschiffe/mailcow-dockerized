@@ -1,1 +1,0 @@
-ALTER TABLE TABLE_PREFIXcarddav_addressbooks ALTER COLUMN name TYPE TEXT;
