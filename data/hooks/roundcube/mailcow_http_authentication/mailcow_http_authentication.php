@@ -15,6 +15,8 @@ class mailcow_http_authentication extends http_authentication
 
             if ($session_user !== $_SERVER['PHP_AUTH_USER']) {
                 $rcmail->kill_session();
+            } else {
+                $this->redirect_login_request();
             }
         }
 
@@ -30,5 +32,21 @@ class mailcow_http_authentication extends http_authentication
         }
 
         return parent::authenticate($args);
+    }
+
+    public function login($args)
+    {
+        // Do not replay Roundcube's expired-session login route after HTTP SSO succeeds.
+        $this->redirect_login_request();
+
+        return parent::login($args);
+    }
+
+    private function redirect_login_request(): void
+    {
+        if (($_GET['_task'] ?? '') === 'login') {
+            header('Location: ./');
+            exit;
+        }
     }
 }
