@@ -225,11 +225,10 @@ services:
         - ROUNDCUBEMAIL_SMTP_SERVER=postfix
         - ROUNDCUBEMAIL_SMTP_PORT=588
         - ROUNDCUBEMAIL_DES_KEY=${ROUNDCUBE_DES_KEY:-}
-        - ROUNDCUBEMAIL_PLUGINS=acl,archive,carddav,dovecot_client_ip,managesieve,markasjunk,password,zipdownload
+        - ROUNDCUBEMAIL_PLUGINS=mailcow_http_authentication,acl,archive,carddav,dovecot_client_ip,managesieve,markasjunk,zipdownload
         - ROUNDCUBEMAIL_COMPOSER_PLUGINS=roundcube/carddav:~5,foorschtbar/dovecot_client_ip:~2
         - COMPOSER_HOME=/tmp/composer
         - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
-        - API_KEY=${API_KEY:-invalid}
         - IPV4_NETWORK=${IPV4_NETWORK:-172.22.1}
         - IPV6_NETWORK=${IPV6_NETWORK:-fd4d:6169:6c63:6f77::/64}
         - TZ=${TZ}
@@ -252,6 +251,7 @@ services:
         start_period: 90s
       networks:
         mailcow-network:
+          ipv4_address: ${IPV4_NETWORK:-172.22.1}.251
           aliases:
             - roundcube
 

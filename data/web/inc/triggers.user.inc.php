@@ -81,6 +81,7 @@ if (isset($_POST["verify_tfa_login"])) {
           header("Location: /");
           die();
         }
+        redirect_to_roundcube_sso();
         if (intval($user_details['attributes']['sogo_access']) == 1 &&
             intval($user_details['attributes']['force_pw_update']) != 1 &&
             getenv('SKIP_SOGO') != "y" &&
@@ -161,6 +162,7 @@ if (isset($_POST["login_user"]) && isset($_POST["pass_user"])) {
       header("Location: /");
       die();
     }
+    redirect_to_roundcube_sso();
     if (intval($user_details['attributes']['sogo_access']) == 1 &&
         intval($user_details['attributes']['force_pw_update']) != 1 &&
         getenv('SKIP_SOGO') != "y" &&

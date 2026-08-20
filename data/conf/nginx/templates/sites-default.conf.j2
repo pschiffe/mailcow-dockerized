@@ -168,6 +168,17 @@ location /rspamd/ {
 }
 {% endif %}
 
+location /roundcube-auth-verify {
+    internal;
+    proxy_set_header  X-Original-URI /rc/;
+    proxy_set_header  X-Real-IP $remote_addr;
+    proxy_set_header  Host $http_host;
+    proxy_set_header  Authorization "";
+    proxy_set_header  Content-Length "";
+    proxy_pass        http://127.0.0.1:65510/sogo-auth;
+    proxy_pass_request_body off;
+}
+
 {% if not SKIP_SOGO %}
 location ^~ /principals {
     return 301 /SOGo/dav;

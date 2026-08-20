@@ -96,6 +96,7 @@ if (!empty($_SERVER['HTTP_X_API_KEY'])) {
 // Handle logouts
 if (isset($_POST["logout"])) {
   if (isset($_SESSION["dual-login"])) {
+    unset($_SESSION['roundcube-sso-return']);
     $_SESSION["mailcow_cc_username"] = $_SESSION["dual-login"]["username"];
     $_SESSION["mailcow_cc_role"] = $_SESSION["dual-login"]["role"];
     unset($_SESSION['sogo-sso-user-allowed']);
@@ -111,6 +112,7 @@ if (isset($_POST["logout"])) {
     exit();
   }
   else {
+    unset($_SESSION['roundcube-sso-return']);
     $role = $_SESSION["mailcow_cc_role"];
     session_regenerate_id(true);
     session_unset();

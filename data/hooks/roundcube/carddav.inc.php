@@ -2,11 +2,11 @@
 $prefs['_GLOBAL']['pwstore_scheme'] = 'des_key';
 
 $prefs['SOGo'] = [
-    'accountname'   => 'SOGo',
+    'accountname'   => 'SOGo (mailcow app password required)',
     'username'      => '%u',
-    'password'      => '%p',
-    'discovery_url' => 'http://sogo:20000/SOGo/dav/',
+    'password'      => '',
+    'discovery_url' => 'https://' . getenv('MAILCOW_HOSTNAME') . '/SOGo/dav/',
     'name'          => '%N',
     'use_categories' => true,
-    'fixed'         => ['username', 'password'],
+    'fixed'         => ['accountname', 'username', 'discovery_url'],
 ];

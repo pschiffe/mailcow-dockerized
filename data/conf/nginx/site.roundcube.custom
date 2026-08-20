@@ -1,8 +1,19 @@
+location = /rc {
+  return 301 /rc/;
+}
+
 location /rc/ {
+  auth_request /roundcube-auth-verify;
+  auth_request_set $roundcube_user $upstream_http_x_user;
+  auth_request_set $roundcube_auth $upstream_http_x_auth;
+  auth_request_set $roundcube_auth_type $upstream_http_x_auth_type;
+  error_page 401 =302 /roundcube-auth.php?action=login;
+
   proxy_pass http://roundcube:8000/;
   proxy_set_header Host $host;
   proxy_set_header X-Real-IP $remote_addr;
   proxy_set_header X-Forwarded-For $remote_addr;
   proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header Authorization $roundcube_auth;
   proxy_redirect off;
 }

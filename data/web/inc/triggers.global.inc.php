@@ -40,11 +40,16 @@ if (isset($_SESSION['mailcow_cc_role'])) {
 		set_tfa($_POST);
 		// After TFA setup during forced enrollment
 		if ($had_pending_tfa_setup && empty($_SESSION['pending_tfa_setup'])) {
+			if (!empty($_SESSION['pending_pw_update'])) {
+				header("Location: /");
+				exit();
+			}
 			if ($_SESSION['mailcow_cc_role'] === 'admin') {
 				header("Location: /admin/dashboard");
 			} elseif ($_SESSION['mailcow_cc_role'] === 'domainadmin') {
 				header("Location: /domainadmin/mailbox");
 			} elseif ($_SESSION['mailcow_cc_role'] === 'user') {
+				redirect_to_roundcube_sso();
 				// Check if user should go to SOGo or /user
 				$user_details = mailbox("get", "mailbox_details", $_SESSION['mailcow_cc_username']);
 				$is_dual = (!empty($_SESSION["dual-login"]["username"])) ? true : false;

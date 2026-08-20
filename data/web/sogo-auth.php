@@ -12,8 +12,59 @@ $session_var_pass = 'sogo-sso-pass';
 // external clients can never supply it (bare fastcgi param, not an HTTP header)
 $is_internal_auth = (($_SERVER['SOGO_AUTH_INTERNAL'] ?? '') === '1');
 
+$original_uri = $_SERVER['HTTP_X_ORIGINAL_URI'] ?? '';
+$is_roundcube_request = ($original_uri === '/rc' || str_starts_with($original_uri, '/rc/'));
+
+// Roundcube accepts only a completed mailbox-owner session. This branch must
+// precede Basic auth so client credentials can never reach check_login().
+if ($is_roundcube_request) {
+  require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/vars.inc.php';
+  if (file_exists($_SERVER['DOCUMENT_ROOT'] . '/inc/vars.local.inc.php')) {
+    include_once $_SERVER['DOCUMENT_ROOT'] . '/inc/vars.local.inc.php';
+  }
+  require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/sessions.inc.php';
+
+  $username = $_SESSION['mailcow_cc_username'] ?? '';
+  $allowed_users = $_SESSION[$session_var_user_allowed] ?? null;
+  $pending_fields = [
+    'pending_tfa_setup',
+    'pending_pw_update',
+    'pending_mailcow_cc_username',
+    'pending_mailcow_cc_role',
+    'pending_tfa_methods',
+  ];
+  $has_pending_state = false;
+  foreach ($pending_fields as $field) {
+    if (!empty($_SESSION[$field])) {
+      $has_pending_state = true;
+      break;
+    }
+  }
+
+  $session_is_allowed = (
+    $is_internal_auth &&
+    ($_SESSION['mailcow_cc_role'] ?? '') === 'user' &&
+    empty($_SESSION['dual-login']) &&
+    filter_var($username, FILTER_VALIDATE_EMAIL) !== false &&
+    is_array($allowed_users) &&
+    in_array($username, $allowed_users, true) &&
+    !$has_pending_state
+  );
+  $password = $session_is_allowed ? @file_get_contents('/etc/sogo-sso/sogo-sso.pass') : false;
+
+  if ($password !== false && $password !== '') {
+    header("X-User: $username");
+    header('X-Auth: Basic ' . base64_encode("$username:$password"));
+    header('X-Auth-Type: Basic');
+    exit;
+  }
+
+  http_response_code(401);
+  exit;
+}
+
 // validate credentials for basic auth requests
-if ($is_internal_auth && isset($_SERVER['PHP_AUTH_USER'])) {
+elseif ($is_internal_auth && isset($_SERVER['PHP_AUTH_USER'])) {
   // load prerequisites only when required
   require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/prerequisites.inc.php';
 
@@ -22,7 +73,6 @@ if ($is_internal_auth && isset($_SERVER['PHP_AUTH_USER'])) {
 
   // Determine service type for protocol access check
   $service = 'NONE';
-  $original_uri = isset($_SERVER['HTTP_X_ORIGINAL_URI']) ? $_SERVER['HTTP_X_ORIGINAL_URI'] : '';
   if (preg_match('/^(\/SOGo|)\/dav.*/', $original_uri) === 1) {
     $service = 'DAV';
   }

@@ -67,21 +67,25 @@ require_once 'functions.ratelimit.inc.php';
 require_once 'functions.acl.inc.php';
 
 
-$isSOGoRequest = $post['real_rip'] == getenv('IPV4_NETWORK') . '.248';
+$trustedWebmailServices = [
+  getenv('IPV4_NETWORK') . '.248' => 'SOGO',
+  getenv('IPV4_NETWORK') . '.251' => 'ROUNDCUBE',
+];
+$webmailService = $trustedWebmailServices[$post['real_rip']] ?? null;
 $result = false;
-if ($isSOGoRequest) {
-  // This is a SOGo Auth request. First check for SSO password.
+if ($webmailService !== null) {
+  // Trusted webmail clients authenticate with the rotating internal SSO password.
   $sogo_sso_pass = file_get_contents("/etc/sogo-sso/sogo-sso.pass");
-  if ($sogo_sso_pass === $post['password']){
-    error_log('MAILCOWAUTH: SOGo SSO auth for user ' . $post['username']);
-    set_sasl_log($post['username'], $post['real_rip'], "SOGO");
+  if (!empty($sogo_sso_pass) && $sogo_sso_pass === $post['password']){
+    error_log('MAILCOWAUTH: ' . $webmailService . ' SSO auth for user ' . $post['username']);
+    set_sasl_log($post['username'], $post['real_rip'], $webmailService);
     $result = true;
   }
 }
 if ($result === false){
-  // If it's a SOGo Request, don't check for protocol access
-  if ($isSOGoRequest) {
-    $service = 'SOGO';
+  // Trusted webmail requests that miss SSO may use app passwords, but not regular protocol access.
+  if ($webmailService !== null) {
+    $service = $webmailService;
     $post['service'] = 'NONE';
   } else {
     $service = $post['service'];

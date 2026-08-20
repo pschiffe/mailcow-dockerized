@@ -3545,6 +3545,42 @@ function set_user_loggedin_session($user) {
   unset($_SESSION['pending_mailcow_cc_role']);
   unset($_SESSION['pending_tfa_methods']);
 }
+function redirect_to_roundcube_sso(): void {
+  if (empty($_SESSION['roundcube-sso-return'])) {
+    return;
+  }
+
+  $pending_fields = [
+    'pending_tfa_setup',
+    'pending_pw_update',
+    'pending_mailcow_cc_username',
+    'pending_mailcow_cc_role',
+    'pending_tfa_methods',
+  ];
+  foreach ($pending_fields as $field) {
+    if (!empty($_SESSION[$field])) {
+      return;
+    }
+  }
+
+  $username = $_SESSION['mailcow_cc_username'] ?? '';
+  $allowed_users = $_SESSION['sogo-sso-user-allowed'] ?? null;
+  if (
+    ($_SESSION['mailcow_cc_role'] ?? '') === 'user' &&
+    empty($_SESSION['dual-login']) &&
+    filter_var($username, FILTER_VALIDATE_EMAIL) !== false &&
+    is_array($allowed_users) &&
+    in_array($username, $allowed_users, true)
+  ) {
+    unset($_SESSION['roundcube-sso-return']);
+    header('Location: /rc/');
+    exit();
+  }
+
+  if (isset($_SESSION['mailcow_cc_role'])) {
+    unset($_SESSION['roundcube-sso-return']);
+  }
+}
 function protect_route($allowed_roles = ['admin', 'domainadmin', 'user'], $redirects = []) {
   // Check if user is authenticated
   if (!isset($_SESSION['mailcow_cc_role'])) {
