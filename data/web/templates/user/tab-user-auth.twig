@@ -12,8 +12,9 @@
       {% endif %}
       <div class="row">
         <div class="col-xl-9 col-lg-7 col-md-12 col-12 d-flex flex-column mb-4">
-          {% if not skip_sogo %}
-          <div class="row mb-4">
+          {% if not skip_sogo or enable_roundcube %}
+          <div class="row g-2 mb-4">
+            {% if not skip_sogo %}
             <div class="col-12 col-lg-6 col-xl-4">
               {% if dual_login and allow_admin_email_login == 'n' or mailboxdata.attributes.force_pw_update == '1' %}
                 <button disabled class="btn btn-secondary btn-block btn-xs-lg w-100">
@@ -29,6 +30,20 @@
                 </a>
               {% endif %}
             </div>
+            {% endif %}
+            {% if enable_roundcube %}
+            <div class="col-12 col-lg-6 col-xl-4">
+              {% if dual_login or mailboxdata.attributes.force_pw_update == '1' %}
+                <button disabled class="btn btn-secondary btn-block btn-xs-lg w-100">
+                  Roundcube <i class="bi bi-arrow-right"></i>
+                </button>
+              {% else %}
+                <a href="/rc/" role="button" class="btn btn-primary btn-lg btn-block btn-xs-lg w-100">
+                  Roundcube <i class="bi bi-arrow-right"></i>
+                </a>
+              {% endif %}
+            </div>
+            {% endif %}
           </div>
           {% endif %}
 

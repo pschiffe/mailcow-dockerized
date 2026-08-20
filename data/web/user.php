@@ -62,6 +62,7 @@ $template_data = [
   'tfa_id' => @$_SESSION['tfa_id'],
   'fido2_data' => $fido2_data,
   'mailboxdata' => $mailboxdata,
+  'enable_roundcube' => getenv('ENABLE_ROUNDCUBE') === 'y',
   'clientconfigstr' => $clientconfigstr,
   'user_get_alias_details' => $user_get_alias_details,
   'get_tagging_options' => mailbox('get', 'delimiter_action', $username),

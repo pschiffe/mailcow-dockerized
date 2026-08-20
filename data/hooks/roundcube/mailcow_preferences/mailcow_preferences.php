@@ -10,7 +10,6 @@ class mailcow_preferences extends rcube_plugin
 
     public function init()
     {
-        $this->add_texts('localization/', false);
         $this->add_hook('startup', [$this, 'startup']);
     }
 
@@ -24,10 +23,11 @@ class mailcow_preferences extends rcube_plugin
                 'href' => '/user',
                 'class' => 'button-mailcow-preferences',
                 'innerclass' => 'button-inner',
-                'label' => 'mailcow_preferences.preferences',
-                'title' => 'mailcow_preferences.preferences',
+                'label' => 'mailcow',
+                'title' => 'mailcow',
             ], 'taskbar');
 
+            $this->include_script('mailcow_preferences.js');
             $this->include_stylesheet($this->local_skin_path() . '/mailcow_preferences.css');
         }
 
