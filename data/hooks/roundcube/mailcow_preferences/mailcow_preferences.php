@@ -23,8 +23,7 @@ class mailcow_preferences extends rcube_plugin
                 'href' => '/user',
                 'class' => 'button-mailcow-preferences',
                 'innerclass' => 'button-inner',
-                'label' => 'mailcow',
-                'title' => 'mailcow',
+                'content' => 'mailcow',
             ], 'taskbar');
 
             $this->include_script('mailcow_preferences.js');
