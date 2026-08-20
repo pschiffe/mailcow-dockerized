@@ -225,7 +225,7 @@ services:
         - ROUNDCUBEMAIL_SMTP_SERVER=${IPV4_NETWORK:-172.22.1}.253
         - ROUNDCUBEMAIL_SMTP_PORT=588
         - ROUNDCUBEMAIL_DES_KEY=${ROUNDCUBE_DES_KEY:-}
-        - ROUNDCUBEMAIL_PLUGINS=mailcow_http_authentication,acl,archive,carddav,dovecot_client_ip,managesieve,markasjunk,zipdownload
+        - ROUNDCUBEMAIL_PLUGINS=mailcow_http_authentication,mailcow_preferences,acl,archive,carddav,dovecot_client_ip,managesieve,markasjunk,zipdownload
         - ROUNDCUBEMAIL_COMPOSER_PLUGINS=roundcube/carddav:~5,foorschtbar/dovecot_client_ip:~2
         - COMPOSER_HOME=/tmp/composer
         - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
