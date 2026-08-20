@@ -1,0 +1,18 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "baseBranchPatterns": ["master"],
+  "enabledManagers": ["docker-compose"],
+  "packageRules": [
+    {
+      "description": "Disable all Docker Compose dependencies by default",
+      "matchManagers": ["docker-compose"],
+      "enabled": false
+    },
+    {
+      "description": "Enable updates for the Roundcube image",
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": ["roundcube/roundcubemail"],
+      "enabled": true
+    }
+  ]
+}
