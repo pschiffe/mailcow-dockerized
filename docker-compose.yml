@@ -201,7 +201,7 @@ services:
             - phpfpm
 
     roundcube-mailcow:
-      image: roundcube/roundcubemail:1.6.18-apache-nonroot
+      image: roundcube/roundcubemail:1.7.3-apache-nonroot
       depends_on:
         mysql-mailcow:
           condition: service_started
