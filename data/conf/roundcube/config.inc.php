@@ -5,11 +5,11 @@ $config['support_url'] = '';
 $config['product_name'] = 'Roundcube Webmail';
 $config['cipher_method'] = 'chacha20-poly1305';
 $config['session_path'] = '/rc/';
-$config['http_authentication_host'] = 'dovecot';
+$config['http_authentication_host'] = getenv('IPV4_NETWORK') . '.250';
 $config['logout_url'] = '/roundcube-auth.php?action=logout';
 $config['enable_installer'] = false;
 
-$config['managesieve_host'] = 'dovecot:4190';
+$config['managesieve_host'] = getenv('IPV4_NETWORK') . '.250:4190';
 $config['managesieve_vacation'] = 1;
 
 $config['address_book_type'] = '';

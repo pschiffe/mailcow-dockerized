@@ -219,10 +219,10 @@ services:
         - ROUNDCUBEMAIL_DB_USER=roundcube
         - ROUNDCUBEMAIL_DB_PASSWORD=${DBROUNDCUBE:-}
         - ROUNDCUBEMAIL_DB_NAME=roundcubemail
-        - ROUNDCUBEMAIL_DEFAULT_HOST=dovecot
+        - ROUNDCUBEMAIL_DEFAULT_HOST=${IPV4_NETWORK:-172.22.1}.250
         - ROUNDCUBEMAIL_REQUEST_PATH=/rc/
         - ROUNDCUBEMAIL_DEFAULT_PORT=143
-        - ROUNDCUBEMAIL_SMTP_SERVER=postfix
+        - ROUNDCUBEMAIL_SMTP_SERVER=${IPV4_NETWORK:-172.22.1}.253
         - ROUNDCUBEMAIL_SMTP_PORT=588
         - ROUNDCUBEMAIL_DES_KEY=${ROUNDCUBE_DES_KEY:-}
         - ROUNDCUBEMAIL_PLUGINS=mailcow_http_authentication,acl,archive,carddav,dovecot_client_ip,managesieve,markasjunk,zipdownload
