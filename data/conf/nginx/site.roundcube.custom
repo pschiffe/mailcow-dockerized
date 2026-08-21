@@ -7,7 +7,7 @@ location /rc/ {
   auth_request_set $roundcube_user $upstream_http_x_user;
   auth_request_set $roundcube_auth $upstream_http_x_auth;
   auth_request_set $roundcube_auth_type $upstream_http_x_auth_type;
-  error_page 401 =302 /roundcube-auth.php?action=login;
+  error_page 401 = @roundcube-auth-failure;
 
   proxy_pass http://roundcube:8000/;
   proxy_set_header Host $host;
@@ -16,4 +16,29 @@ location /rc/ {
   proxy_set_header X-Forwarded-Proto $scheme;
   proxy_set_header Authorization $roundcube_auth;
   proxy_redirect off;
+}
+
+location @roundcube-auth-failure {
+  default_type text/html;
+
+  # Roundcube expects JSON from AJAX requests. session_error() preserves
+  # unsaved compose data and stops keepalive/refresh after authentication loss.
+  if ($http_x_roundcube_request != "") {
+    rewrite ^ /roundcube-auth-ajax last;
+  }
+
+  # Framed views must notify the top-level client instead of embedding the
+  # mailcow login page. session_error() also protects unsaved compose state.
+  if ($arg__framed = "1") {
+    return 200 '<!doctype html><script>if(window.top.rcmail&&typeof window.top.rcmail.session_error==="function"){window.top.rcmail.session_error("/roundcube-auth.php?action=login")}else{window.top.location.replace("/roundcube-auth.php?action=login")}</script>';
+  }
+
+  return 302 /roundcube-auth.php?action=login;
+}
+
+location = /roundcube-auth-ajax {
+  internal;
+  default_type "";
+  add_header Content-Type application/json always;
+  return 200 '{"exec":"rcmail.session_error(\\\"/roundcube-auth.php?action=login\\\");"}';
 }
