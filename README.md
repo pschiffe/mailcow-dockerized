@@ -40,6 +40,23 @@ Please see [the official documentation](https://docs.mailcow.email/) for install
 
 🐛 **If you found a critical security issue, please mail us to [info at servercow.de](mailto:info@servercow.de).**
 
+## Custom Roundcube SSO
+
+Roundcube at `/rc/` requires a completed mailbox-owner session. Each SSO request
+rechecks that the mailbox and domain are active, the mailbox is not a resource,
+and it has not been converted to a shared mailbox. The login recovery endpoint
+uses the same eligibility check and returns HTTP 403 when access has been revoked,
+rather than redirecting back to Roundcube. Database lookup failures return HTTP
+503 without issuing SSO credentials.
+
+Dovecot trusts only Roundcube's fixed address, `172.22.1.251/32`, configured in
+`data/conf/dovecot/extra.conf`. This deployment uses the default mailcow IPv4
+network. Restart `dovecot-mailcow` after changing the trust configuration.
+
+Roundcube receives mailcow's effective client scheme, preserving forwarded HTTPS
+when an external reverse proxy terminates TLS. Reload or restart `nginx-mailcow`
+after changing the proxy configuration.
+
 ## Cowmunity
 
 [mailcow community](https://community.mailcow.email)

@@ -23,6 +23,7 @@ if ($is_roundcube_request) {
     include_once $_SERVER['DOCUMENT_ROOT'] . '/inc/vars.local.inc.php';
   }
   require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/sessions.inc.php';
+  require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/functions.roundcube.inc.php';
 
   $username = $_SESSION['mailcow_cc_username'] ?? '';
   $allowed_users = $_SESSION[$session_var_user_allowed] ?? null;
@@ -50,6 +51,27 @@ if ($is_roundcube_request) {
     in_array($username, $allowed_users, true) &&
     !$has_pending_state
   );
+  if ($session_is_allowed) {
+    // Recheck current eligibility: the mailbox may have changed since login.
+    try {
+      $pdo = new PDO(
+        $database_type . ":unix_socket=" . $database_sock . ";dbname=" . $database_name,
+        $database_user,
+        $database_pass,
+        [
+          PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+          PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+          PDO::ATTR_EMULATE_PREPARES => false,
+        ]
+      );
+      $session_is_allowed = roundcube_sso_mailbox_allowed($pdo, $username);
+    }
+    catch (PDOException $e) {
+      error_log('Roundcube SSO mailbox eligibility lookup failed');
+      http_response_code(503);
+      exit;
+    }
+  }
   $password = $session_is_allowed ? @file_get_contents('/etc/sogo-sso/sogo-sso.pass') : false;
 
   if ($password !== false && $password !== '') {

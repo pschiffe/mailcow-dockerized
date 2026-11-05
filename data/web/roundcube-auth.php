@@ -1,6 +1,7 @@
 <?php
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/prerequisites.inc.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/functions.roundcube.inc.php';
 
 $action = $_GET['action'] ?? '';
 if (!in_array($action, ['login', 'logout'], true)) {
@@ -42,6 +43,19 @@ $is_mailbox_owner = (
 );
 
 if ($is_mailbox_owner && !$has_pending_state) {
+  try {
+    $mailbox_is_allowed = roundcube_sso_mailbox_allowed($pdo, $username);
+  }
+  catch (PDOException $e) {
+    error_log('Roundcube SSO mailbox eligibility lookup failed');
+    http_response_code(503);
+    exit;
+  }
+  if (!$mailbox_is_allowed) {
+    unset($_SESSION['roundcube-sso-return']);
+    http_response_code(403);
+    exit('Roundcube access is no longer available for this mailbox.');
+  }
   $sso_password = @file_get_contents('/etc/sogo-sso/sogo-sso.pass');
   if ($sso_password === false || $sso_password === '') {
     http_response_code(503);
