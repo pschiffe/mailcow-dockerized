@@ -14,7 +14,7 @@ def includes_conf(env, template_vars):
   if template_vars['ENABLE_IPV6']:
     listen_plain_config += f"\nlisten [::]:{template_vars['HTTP_PORT']};"
     listen_ssl_config += f"\nlisten [::]:{template_vars['HTTPS_PORT']} ssl;"
-  listen_ssl_config += "\nhttp2 on;"
+  listen_ssl_config += "\nhttp2 off;"
 
   with open(f"/etc/nginx/conf.d/{server_name}", "w") as f:
     f.write(server_name_config)
