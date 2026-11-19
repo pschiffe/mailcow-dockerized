@@ -25,7 +25,15 @@ if ($iam_provider){
     unset($_SESSION['oauth2state']);
     // Received access token in $_GET['code']
     // extract info and verify user
-    identity_provider('verify-sso');
+    if (identity_provider('verify-sso') && ($_SESSION['roundcube-reauth'] ?? null) === 'pending') {
+      // Only a verified callback tells us whether this login issued a refresh token.
+      if (empty($_SESSION['iam_refresh_token'])) {
+        $_SESSION['roundcube-reauth'] = 'no-refresh-token';
+      } else {
+        unset($_SESSION['roundcube-reauth']);
+      }
+      $_SESSION['roundcube-sso-return'] = true;
+    }
   }
 }
 

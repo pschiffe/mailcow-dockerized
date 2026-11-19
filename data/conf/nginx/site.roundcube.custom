@@ -8,6 +8,10 @@ location /rc/ {
   auth_request_set $roundcube_auth $upstream_http_x_auth;
   auth_request_set $roundcube_auth_type $upstream_http_x_auth_type;
   error_page 401 = @roundcube-auth-failure;
+  # auth_request converts verifier 5xx responses to a local 500. Keep actual
+  # Roundcube responses untouched, including errors from the application.
+  error_page 500 = @roundcube-auth-unavailable;
+  proxy_intercept_errors off;
 
   proxy_pass http://roundcube:8000/;
   proxy_set_header Host $host;
@@ -16,6 +20,10 @@ location /rc/ {
   proxy_set_header X-Forwarded-Proto $client_req_scheme;
   proxy_set_header Authorization $roundcube_auth;
   proxy_redirect off;
+}
+
+location @roundcube-auth-unavailable {
+  return 503;
 }
 
 location @roundcube-auth-failure {

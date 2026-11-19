@@ -146,6 +146,7 @@ services:
         - ./data/conf/phpfpm/php-conf.d/opcache-recommended.ini:/usr/local/etc/php/conf.d/opcache-recommended.ini:Z
         - ./data/conf/phpfpm/php-conf.d/upload.ini:/usr/local/etc/php/conf.d/upload.ini:Z
         - ./data/conf/phpfpm/php-conf.d/other.ini:/usr/local/etc/php/conf.d/zzz-other.ini:Z
+        - ./data/conf/phpfpm/php-conf.d/roundcube-session.ini:/usr/local/etc/php/conf.d/zzz-roundcube-session.ini:ro,Z
         - ./data/conf/dovecot/global_sieve_before:/global_sieve/before:z
         - ./data/conf/dovecot/global_sieve_after:/global_sieve/after:z
         - ./data/assets/templates:/tpls:z

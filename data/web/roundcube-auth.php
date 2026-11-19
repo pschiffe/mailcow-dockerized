@@ -4,7 +4,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/prerequisites.inc.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/functions.roundcube.inc.php';
 
 $action = $_GET['action'] ?? '';
-if (!in_array($action, ['login', 'logout'], true)) {
+if (!in_array($action, ['login', 'reauth', 'logout'], true)) {
   http_response_code(404);
   exit;
 }
@@ -42,28 +42,49 @@ $is_mailbox_owner = (
   in_array($username, $allowed_users, true)
 );
 
-if ($is_mailbox_owner && !$has_pending_state) {
+if ($is_mailbox_owner) {
   try {
-    $mailbox_is_allowed = roundcube_sso_mailbox_allowed($pdo, $username);
+    $mailbox_is_allowed = roundcube_sso_apply_mailbox_policy($pdo, $username);
+    if ($mailbox_is_allowed && !roundcube_sso_validate_oidc_session($pdo)) {
+      header('Location: /');
+      exit;
+    }
   }
-  catch (PDOException $e) {
-    error_log('Roundcube SSO mailbox eligibility lookup failed');
+  catch (RoundcubeOidcLoginRequired $e) {
+    if (($_SESSION['roundcube-reauth'] ?? null) === 'no-refresh-token') {
+      http_response_code(403);
+      header('Content-Type: text/html; charset=utf-8');
+      exit('Roundcube requires a refresh token. Ask your administrator to enable refresh-token issuance for the mailcow OIDC client, then sign in again. You can still <a href="/user">return to mailcow</a>.');
+    }
+    if ($action === 'reauth') {
+      $_SESSION['roundcube-reauth'] = 'pending';
+      header('Location: /?iam_sso=1');
+      exit;
+    }
+    http_response_code(403);
+    header('Content-Type: text/html; charset=utf-8');
+    exit('Roundcube needs a fresh identity-provider login. <a href="/roundcube-auth.php?action=reauth">Sign in again</a> or <a href="/user">return to mailcow</a>.');
+  }
+  catch (PDOException | RoundcubeOidcUnavailable $e) {
+    error_log('Roundcube SSO eligibility verification unavailable');
     http_response_code(503);
     exit;
   }
   if (!$mailbox_is_allowed) {
-    unset($_SESSION['roundcube-sso-return']);
     http_response_code(403);
     exit('Roundcube access is no longer available for this mailbox.');
   }
-  $sso_password = @file_get_contents('/etc/sogo-sso/sogo-sso.pass');
-  if ($sso_password === false || $sso_password === '') {
-    http_response_code(503);
+  $has_pending_state = $has_pending_state || !empty($_SESSION['pending_pw_update']);
+  if (!$has_pending_state) {
+    $sso_password = @file_get_contents('/etc/sogo-sso/sogo-sso.pass');
+    if ($sso_password === false || $sso_password === '') {
+      http_response_code(503);
+      exit;
+    }
+    unset($_SESSION['roundcube-sso-return']);
+    header('Location: /rc/');
     exit;
   }
-  unset($_SESSION['roundcube-sso-return']);
-  header('Location: /rc/');
-  exit;
 }
 
 if ($role === '' || ($is_mailbox_owner && $has_pending_state)) {

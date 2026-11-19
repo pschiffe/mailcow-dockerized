@@ -44,10 +44,28 @@ Please see [the official documentation](https://docs.mailcow.email/) for install
 
 Roundcube at `/rc/` requires a completed mailbox-owner session. Each SSO request
 rechecks that the mailbox and domain are active, the mailbox is not a resource,
-and it has not been converted to a shared mailbox. The login recovery endpoint
-uses the same eligibility check and returns HTTP 403 when access has been revoked,
-rather than redirecting back to Roundcube. Database lookup failures return HTTP
-503 without issuing SSO credentials.
+and it has not been converted to a shared mailbox. A newly required password
+change sends the local mailbox owner back to mailcow before Roundcube can open
+again. For OIDC sessions, Roundcube also verifies that the provider still accepts
+the session and that the identity still belongs to this mailbox.
+The identity provider must issue a refresh token to the mailcow OIDC client on
+authorization-code login. Enable the provider's refresh-token grant and request
+`offline_access` if the provider requires that scope. Without a refresh token,
+mailcow login can succeed but Roundcube access remains blocked.
+Redis session locking serializes concurrent requests from the same browser so
+they cannot reuse a rotated OIDC refresh token. Run
+`docker compose up -d --no-deps php-fpm-mailcow` to apply the new ini mount;
+a restart alone does not add it.
+
+Login recovery returns HTTP 403 for a revoked mailbox instead of redirecting
+back to Roundcube. If the eligibility query fails, the SSO secret is missing,
+or the OIDC provider is unavailable, `/rc/` returns HTTP 503 without forwarding
+the request. An unavailable provider or malformed userinfo response does not
+log the user out of mailcow. If mailcow no longer has a refresh token, Roundcube
+offers a new provider login without ending the existing mailcow session. Choosing
+**Sign in again** returns to `/rc/` after login; **return to mailcow** does not.
+Opening mailcow in another tab follows its normal landing page during reauthentication. Recovery shows
+provider configuration guidance only after a verified login returns no refresh token.
 
 Dovecot trusts only Roundcube's fixed address, `172.22.1.251/32`, configured in
 `data/conf/dovecot/extra.conf`. This deployment uses the default mailcow IPv4

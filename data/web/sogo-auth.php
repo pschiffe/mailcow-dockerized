@@ -64,17 +64,25 @@ if ($is_roundcube_request) {
           PDO::ATTR_EMULATE_PREPARES => false,
         ]
       );
-      $session_is_allowed = roundcube_sso_mailbox_allowed($pdo, $username);
+      $session_is_allowed = roundcube_sso_apply_mailbox_policy($pdo, $username) &&
+        roundcube_sso_validate_oidc_session($pdo) &&
+        empty($_SESSION['pending_pw_update']);
     }
-    catch (PDOException $e) {
-      error_log('Roundcube SSO mailbox eligibility lookup failed');
+    catch (RoundcubeOidcLoginRequired $e) {
+      $session_is_allowed = false;
+    }
+    catch (PDOException | RoundcubeOidcUnavailable $e) {
+      error_log('Roundcube SSO eligibility verification unavailable');
       http_response_code(503);
       exit;
     }
   }
-  $password = $session_is_allowed ? @file_get_contents('/etc/sogo-sso/sogo-sso.pass') : false;
-
-  if ($password !== false && $password !== '') {
+  if ($session_is_allowed) {
+    $password = @file_get_contents('/etc/sogo-sso/sogo-sso.pass');
+    if ($password === false || $password === '') {
+      http_response_code(503);
+      exit;
+    }
     header("X-User: $username");
     header('X-Auth: Basic ' . base64_encode("$username:$password"));
     header('X-Auth-Type: Basic');
