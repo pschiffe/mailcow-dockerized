@@ -1,7 +1,19 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "baseBranchPatterns": ["master"],
-  "enabledManagers": ["docker-compose"],
+  "includePaths": ["docker-compose.yml", ".github/workflows/roundcube-sso.yml"],
+  "enabledManagers": ["docker-compose", "github-actions", "custom.regex"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [".github/workflows/roundcube-sso.yml"],
+      "matchStrings": [
+        "tools: composer:v(?<currentValue>\\d+)\\s"
+      ],
+      "depNameTemplate": "composer",
+      "datasourceTemplate": "docker"
+    }
+  ],
   "packageRules": [
     {
       "description": "Disable all Docker Compose dependencies by default",
@@ -9,9 +21,9 @@
       "enabled": false
     },
     {
-      "description": "Enable updates for the Roundcube image",
+      "description": "Update only images introduced by the fork",
       "matchManagers": ["docker-compose"],
-      "matchPackageNames": ["roundcube/roundcubemail"],
+      "matchPackageNames": ["roundcube/roundcubemail", "boky/postfix-exporter", "ghcr.io/mailcow/prometheus-exporter"],
       "enabled": true
     }
   ]

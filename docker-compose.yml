@@ -730,7 +730,7 @@ services:
             - ofelia
 
     postfix-exporter:
-      image: boky/postfix-exporter
+      image: boky/postfix-exporter:5.2.1
       restart: always
       depends_on:
         - postfix-mailcow

@@ -1,0 +1,29 @@
+name: Roundcube SSO
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          # Match the PHP major/minor of php-fpm-mailcow in docker-compose.yml.
+          php-version: '8.2'
+          extensions: pdo_sqlite, mbstring, dom, xmlwriter
+          tools: composer:v2
+          coverage: none
+      - name: Install locked test dependencies
+        run: composer install --working-dir=tests/php --no-interaction --no-progress
+      - name: Run upstream and fork PHP tests
+        working-directory: tests/php
+        run: vendor/bin/phpunit
+      - name: Check browser reauthentication flow
+        run: helper-scripts/dev_tests/test_roundcube_reauth.sh
