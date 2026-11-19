@@ -57,18 +57,6 @@ Roundcube receives mailcow's effective client scheme, preserving forwarded HTTPS
 when an external reverse proxy terminates TLS. Reload or restart `nginx-mailcow`
 after changing the proxy configuration.
 
-## Temporary nginx HTTP/2 mitigation
-
-For [mailcow issue #7668](https://github.com/mailcow/mailcow-dockerized/issues/7668),
-`docker compose up -d` uses the published mailcow nginx image with HTTP/2
-disabled in the built-in listeners and in the generated `listen_ssl.active`
-include. No image build or deployment override is needed.
-
-This mitigates the HTTP/2 vulnerabilities only. Check for independently
-enabled HTTP/2 in local vhosts with `docker compose exec -T nginx-mailcow nginx -T`.
-When switching to the patched mailcow image, remove the temporary `/bootstrap.py`
-bind mount and the HTTP/2 configuration changes.
-
 ## Cowmunity
 
 [mailcow community](https://community.mailcow.email)

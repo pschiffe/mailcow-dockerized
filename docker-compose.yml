@@ -511,7 +511,6 @@ services:
         - ./data/conf/rspamd/dynmaps:/dynmaps:ro,z
         - ./data/assets/ssl/:/etc/ssl/mail/:ro,z
         - ./data/conf/nginx/:/etc/nginx/conf.d/:z
-        - ./data/Dockerfiles/nginx/bootstrap.py:/bootstrap.py:ro,z
         - ./data/conf/rspamd/meta_exporter:/meta_exporter:ro,z
         - ./data/conf/dovecot/auth/mailcowauth.php:/mailcowauth/mailcowauth.php:z
         - ./data/web/inc/functions.inc.php:/mailcowauth/functions.inc.php:z
